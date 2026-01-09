@@ -137,7 +137,8 @@ function wouldFormMatch(board, r, c, t) {
   return false;
 }
 function randTile() {
-  const t = TILESET.tiles[Math.floor(Math.random() * TILESET.tiles.length)];
+  const list = TILESET.baseTiles;
+  const t = list[Math.floor(Math.random() * list.length)];
   return { ...t };
 }
 
@@ -272,6 +273,7 @@ function isAdjacent(a, b) { // legacy helper, not used now
   const dc = Math.abs(a.c - b.c);
   return (dr + dc) === 1;
 }
+
 
 
 async function attemptLineShift(axis, index, delta, anchor) {
@@ -763,24 +765,15 @@ function listAssetUrlsToPreload() {
 
   // Optional background (Variant A). If file doesn't exist, onerror is fine.
   urls.add("assets/bg.webp");
-  urls.add("assets/bg.jpg");
-  urls.add("assets/bg.png");
-
-  // Tile images (base + boosters)
+// Tile images (base + boosters)
   if (TILESET.baseTiles) {
     TILESET.baseTiles.forEach(t => t.img && urls.add(t.img));
-  } else if (TILESET.tiles) {
-    TILESET.tiles.forEach(t => t.img && urls.add(t.img));
+  } else if (TILESET.baseTiles) {
+    TILESET.baseTiles.forEach(t => t.img && urls.add(t.img));
   }
   if (TILESET.boosters) {
     Object.values(TILESET.boosters).forEach(t => t.img && urls.add(t.img));
-  }
-
-  // Optional UI/extra assets (safe to ignore if not present)
-  urls.add("assets/tile-bg.png");
-  urls.add("assets/tile-bg.webp");
-
-  return Array.from(urls);
+  }return Array.from(urls);
 }
 
 function preloadImages(urls) {
