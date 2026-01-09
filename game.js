@@ -271,10 +271,6 @@ function isAdjacent(a, b) { // legacy helper, not used now
   const dr = Math.abs(a.r - b.r);
   const dc = Math.abs(a.c - b.c);
   return (dr + dc) === 1;
-}(a, b) {
-  const dr = Math.abs(a.r - b.r);
-  const dc = Math.abs(a.c - b.c);
-  return (dr + dc) === 1;
 }
 
 
