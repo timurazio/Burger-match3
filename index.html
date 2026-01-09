@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Burger Match-3</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="preloader" class="preloader" aria-label="Загрузка">
+    <div class="preloader-card">
+      <div class="preloader-title">Loading…</div>
+      <div class="preloader-bar">
+        <div id="preloaderFill" class="preloader-fill"></div>
+      </div>
+      <div class="preloader-meta"><span id="preloaderPct">0</span>%</div>
+    </div>
+  </div>
+  <header class="topbar">
+    <div class="left">
+      <div class="timer" title="Таймер"><span id="time">01:30</span></div>
+    </div>
+<div class="right">
+      <button class="close" id="resetBtn" type="button" title="Новая игра">⟲</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="mascot">
+        <div class="bubble">
+          <div class="bubble-row">
+            <button class="chip" data-addtime="10" type="button">+10</button>
+            <button class="chip" data-addtime="20" type="button">+20</button>
+            <button class="chip" data-addtime="40" type="button">+40</button>
+          </div>
+          <div class="bubble-row coins">
+            <span class="coin">👑</span>
+            <span id="coins">0</span>
+          </div>
+        </div>
+</div>
+    </section>
+
+    <section class="hud">
+      <div class="stat">Счет: <strong id="score">0</strong></div>
+      <div class="stat">Комбо: <strong id="combo">0</strong></div>
+      <div class="stat">Ходы: <strong id="moves">0</strong></div>
+    </section>
+
+    <section class="board-card">
+      <div id="board" class="board" aria-label="Игровое поле"></div>
+      <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
+      <div id="overlay" class="overlay hidden">
+        <div class="overlay-card">
+        <div class="overlay-title">Игра окончена</div>
+        <div class="overlay-stats">
+          <div class="ost-row"><span>Счет</span><strong id="finalScore">0</strong></div>
+          <div class="ost-row"><span>Ходы</span><strong id="finalMoves">0</strong></div>
+          <div class="ost-row"><span>👑 Короны</span><strong id="finalCrowns">0</strong></div>
+        </div>
+        <div class="overlay-actions">
+          <button id="playAgain" class="primary" type="button">Играть снова</button>
+          <button id="homeBtn" type="button">На главную</button>
+        </div>
+</div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Тяни тайл влево/вправо/вверх/вниз — сдвигается весь ряд или колонка.</span>
+      <span class="muted">Заменишь графику в папке <code>assets/</code> — и будет “бургерная” версия.</span>
+    </footer>
+  </main>
+
+  <script src="game.js"></script>
+<div class="end-actions">
+        <button id="btnPlayAgain" class="btn primary" type="button">Играть снова</button>
+        <button id="btnHome" class="btn" type="button">На главную</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
