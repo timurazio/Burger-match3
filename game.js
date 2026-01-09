@@ -6,7 +6,7 @@ const CFG = {
 };
 
 const TILESET = {
-  useImages: false, // поставь true, когда добавишь PNG в /assets
+  useImages: true, // поставь true, когда добавишь PNG в /assets
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
