@@ -6,8 +6,7 @@ const CFG = {
 };
 
 const TILESET = {
-  // Включаем PNG по умолчанию. Если какого-то файла нет — покажем эмодзи как fallback.
-  useImages: true,
+  useImages: false, // поставь true, когда добавишь PNG в /assets
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
@@ -25,49 +24,6 @@ const TILESET = {
     cola:  { key: "cola",  emoji: "🥤", img: "assets/cola.png"  }, // взрыв 3×3
   }
 };
-
-const IMAGE_CACHE = new Map(); // src -> 'pending' | 'loaded' | 'error'
-let _rerenderQueued = false;
-
-function _queueRerender() {
-  if (_rerenderQueued) return;
-  _rerenderQueued = true;
-  requestAnimationFrame(() => {
-    _rerenderQueued = false;
-    try { renderBoard(); } catch (_) {}
-  });
-}
-
-function _collectTileImageSrcs() {
-  const srcs = [];
-  for (const t of (TILESET.baseTiles || [])) if (t && t.img) srcs.push(t.img);
-  const boosters = TILESET.boosters || {};
-  for (const k of Object.keys(boosters)) {
-    const t = boosters[k];
-    if (t && t.img) srcs.push(t.img);
-  }
-  return Array.from(new Set(srcs));
-}
-
-function preloadTilesetImages() {
-  if (!TILESET.useImages) return;
-  const srcs = _collectTileImageSrcs();
-  for (const src of srcs) {
-    if (!src || IMAGE_CACHE.has(src)) continue;
-    IMAGE_CACHE.set(src, "pending");
-    const img = new Image();
-    img.onload = () => { IMAGE_CACHE.set(src, "loaded"); _queueRerender(); };
-    img.onerror = () => { IMAGE_CACHE.set(src, "error"); };
-    img.src = src;
-  }
-}
-
-function isImageLoaded(src) {
-  return IMAGE_CACHE.get(src) === "loaded";
-}
-
-
-
 
 const $board = document.getElementById("board");
 const $fxLayer = document.getElementById("fxLayer");
@@ -104,7 +60,6 @@ function newGame() {
   };
 
   fitTileSize();
-  // images are preloaded by startWithPreloader
   renderBoard();
   updateHUD();
   hideOverlay();
@@ -187,14 +142,6 @@ function randTile() {
   return { ...t };
 }
 
-// Создание бустера (в прошлой сборке эта функция отсутствовала — из-за этого
-// матчи на 4/5 могли не отрабатываться, хотя ввод уже не залипал).
-function makeBooster(key) {
-  const t = TILESET.boosters?.[key];
-  if (!t) return randTile();
-  return { ...t, isBooster: true };
-}
-
 function renderBoard() {
   $board.innerHTML = "";
   for (let r = 0; r < CFG.rows; r++) {
@@ -206,22 +153,14 @@ function renderBoard() {
       el.dataset.c = String(c);
 
       if (tile) {
-        // Images only (no emoji fallback). If an image is missing, the tile will be blank.
-        el.textContent = "";
-
-        // reset visuals
-        el.style.backgroundRepeat = "no-repeat";
-        el.style.backgroundPosition = "center";
-        el.style.backgroundSize = "75% 75%";
-
-        if (TILESET.useImages && tile.img) {
-          // set regardless of preload state; we block game start until preloading finishes
-          el.style.backgroundImage = `url("${tile.img}")`;
+        if (TILESET.useImages) {
+          el.style.backgroundImage = `url('${tile.img}')`;
+          el.style.backgroundRepeat = "no-repeat";
+          el.style.backgroundPosition = "center";
+          el.style.backgroundSize = "75% 75%";
+          el.textContent = "";
         } else {
-          el.style.backgroundImage = "";
-        }
-      }
-")`;
+          el.textContent = tile.emoji;
         }
       }
 
@@ -341,40 +280,30 @@ async function attemptLineShift(axis, index, delta, anchor) {
   // axis: "row" or "col"
   // index: row index or col index
   // delta: +1 or -1 (cyclic shift)
-  // "Normal fix": never leave the game in a locked (busy) state.
-  // Any unexpected error or early return must still unlock input.
   state.busy = true;
-  console.log("[move] shift", { axis, index, delta, anchor });
 
-  try {
-    const backup = (axis === "row")
-      ? state.board[index].map(t => t ? { ...t } : null)
-      : state.board.map(row => row[index] ? { ...row[index] } : null);
+  const backup = (axis === "row")
+    ? state.board[index].map(t => t ? { ...t } : null)
+    : state.board.map(row => row[index] ? { ...row[index] } : null);
 
-    applyLineShift(axis, index, delta);
+  applyLineShift(axis, index, delta);
+  renderBoard();
+
+  const matches = findAllMatches(state.board);
+  if (matches.length === 0) {
+    restoreLine(axis, index, backup);
     renderBoard();
-    await nextFrame();
-
-    const matches = findAllMatches(state.board);
-    if (matches.length === 0) {
-      restoreLine(axis, index, backup);
-      renderBoard();
-      console.log("[move] no matches → revert");
-      return;
-    }
-
-    state.moves += 1;
-    state.combo = 0;
-    state.lastMove = { type: "shift", axis, index, delta, anchor };
-    updateHUD();
-
-    await resolveMatchesLoop();
-  } catch (err) {
-    console.error("[error] during shift move", err);
-  } finally {
     state.busy = false;
-    console.log("[unlock] input unlocked");
+    return;
   }
+
+  state.moves += 1;
+  state.combo = 0;
+  state.lastMove = { type: "shift", axis, index, delta, anchor };
+  updateHUD();
+
+  await resolveMatchesLoop();
+  state.busy = false;
 }
 
 function applyLineShift(axis, index, delta) {
@@ -424,34 +353,25 @@ function applyColTransform(colIndex, dy) {
 }
 
 async function attemptSwap(a, b) {
-  // Kept for legacy swap mode: unlock in finally.
   state.busy = true;
-  console.log("[move] swap", { a, b });
-  try {
+  swapTiles(a, b);
+  renderBoard();
+
+  const matches = findAllMatches(state.board);
+  if (matches.length === 0) {
     swapTiles(a, b);
     renderBoard();
-    await nextFrame();
-
-    const matches = findAllMatches(state.board);
-    if (matches.length === 0) {
-      swapTiles(a, b);
-      renderBoard();
-      console.log("[move] no matches → revert");
-      return;
-    }
-
-    state.moves += 1;
-    state.combo = 0;
-    state.lastMove = { type: "swap", a, b };
-    updateHUD();
-
-    await resolveMatchesLoop();
-  } catch (err) {
-    console.error("[error] during swap move", err);
-  } finally {
     state.busy = false;
-    console.log("[unlock] input unlocked");
+    return;
   }
+
+  state.moves += 1;
+  state.combo = 0;
+  state.lastMove = { type: "swap", a, b };
+  updateHUD();
+
+  await resolveMatchesLoop();
+  state.busy = false;
 }
 
 function swapTiles(a, b) {
@@ -461,34 +381,14 @@ function swapTiles(a, b) {
 }
 
 async function resolveMatchesLoop() {
-  // "Normal fix": robust cascade resolver.
-  // - Treat any run length >= 3 as a match (handled in findAllMatches)
-  // - Avoid infinite/very long cascades with a hard safety cap
-  // - Add logs to quickly debug stuck states
   let chain = 0;
-  const MAX_CASCADES = 50;
-
-  console.log("[resolve] start");
 
   while (true) {
     const matches = findAllMatches(state.board);
-    if (matches.length === 0) {
-      console.log("[resolve] done (no matches)");
-      break;
-    }
-
-    if (chain >= MAX_CASCADES) {
-      console.warn("[resolve] safety stop: too many cascades", { chain, matches: matches.length });
-      break;
-    }
+    if (matches.length === 0) break;
 
     chain += 1;
     state.combo = chain;
-
-    console.log("[resolve] cascade", {
-      chain,
-      runs: matches.map(m => ({ dir: m.dir, key: m.key, len: m.cells.length }))
-    });
 
     // Create boosters only from the player's direct move (first chain)
     const createdBoosters = [];
@@ -571,7 +471,6 @@ async function resolveMatchesLoop() {
     state.coins += Math.floor(removedCount / 3);
 
     markRemoving(toRemove);
-    await nextFrame();
     await sleep(160);
 
     for (const key of toRemove) {
@@ -583,7 +482,6 @@ async function resolveMatchesLoop() {
     fillBoard(state.board);
 
     renderBoard();
-    await nextFrame();
     updateHUD();
 
     if (!CFG.allowCascades) break;
@@ -848,8 +746,6 @@ function tileCenterPx(r, c) {
 }
 
 function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
-function nextFrame(){ return new Promise(res => requestAnimationFrame(() => res())); }
-
 
 
 function setPreloaderProgress(pct) {
