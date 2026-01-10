@@ -165,7 +165,7 @@ function renderBoard() {
           el.style.backgroundImage = `url('${tile.img}')`;
           el.style.backgroundRepeat = "no-repeat";
           el.style.backgroundPosition = "center";
-          el.style.backgroundSize = "75% 75%";
+          el.style.backgroundSize = "88% 88%";
           el.textContent = "";
         } else {
           el.textContent = tile.emoji;
