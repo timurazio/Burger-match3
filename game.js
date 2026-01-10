@@ -104,7 +104,7 @@ function newGame() {
   };
 
   fitTileSize();
-  preloadTilesetImages();
+  // images are preloaded by startWithPreloader
   renderBoard();
   updateHUD();
   hideOverlay();
@@ -206,18 +206,22 @@ function renderBoard() {
       el.dataset.c = String(c);
 
       if (tile) {
-        // Emoji is always the fallback. If the PNG is preloaded, draw it as a background-image.
-        el.textContent = tile.emoji;
+        // Images only (no emoji fallback). If an image is missing, the tile will be blank.
+        el.textContent = "";
 
         // reset visuals
-        el.style.backgroundImage = "";
         el.style.backgroundRepeat = "no-repeat";
         el.style.backgroundPosition = "center";
         el.style.backgroundSize = "75% 75%";
 
-        if (TILESET.useImages && tile.img && isImageLoaded(tile.img)) {
-          el.textContent = "";
+        if (TILESET.useImages && tile.img) {
+          // set regardless of preload state; we block game start until preloading finishes
           el.style.backgroundImage = `url("${tile.img}")`;
+        } else {
+          el.style.backgroundImage = "";
+        }
+      }
+")`;
         }
       }
 
@@ -349,6 +353,7 @@ async function attemptLineShift(axis, index, delta, anchor) {
 
     applyLineShift(axis, index, delta);
     renderBoard();
+    await nextFrame();
 
     const matches = findAllMatches(state.board);
     if (matches.length === 0) {
@@ -425,6 +430,7 @@ async function attemptSwap(a, b) {
   try {
     swapTiles(a, b);
     renderBoard();
+    await nextFrame();
 
     const matches = findAllMatches(state.board);
     if (matches.length === 0) {
@@ -565,6 +571,7 @@ async function resolveMatchesLoop() {
     state.coins += Math.floor(removedCount / 3);
 
     markRemoving(toRemove);
+    await nextFrame();
     await sleep(160);
 
     for (const key of toRemove) {
@@ -576,6 +583,7 @@ async function resolveMatchesLoop() {
     fillBoard(state.board);
 
     renderBoard();
+    await nextFrame();
     updateHUD();
 
     if (!CFG.allowCascades) break;
@@ -840,6 +848,8 @@ function tileCenterPx(r, c) {
 }
 
 function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
+function nextFrame(){ return new Promise(res => requestAnimationFrame(() => res())); }
+
 
 
 function setPreloaderProgress(pct) {
