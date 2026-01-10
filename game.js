@@ -26,6 +26,49 @@ const TILESET = {
   }
 };
 
+const IMAGE_CACHE = new Map(); // src -> 'pending' | 'loaded' | 'error'
+let _rerenderQueued = false;
+
+function _queueRerender() {
+  if (_rerenderQueued) return;
+  _rerenderQueued = true;
+  requestAnimationFrame(() => {
+    _rerenderQueued = false;
+    try { renderBoard(); } catch (_) {}
+  });
+}
+
+function _collectTileImageSrcs() {
+  const srcs = [];
+  for (const t of (TILESET.baseTiles || [])) if (t && t.img) srcs.push(t.img);
+  const boosters = TILESET.boosters || {};
+  for (const k of Object.keys(boosters)) {
+    const t = boosters[k];
+    if (t && t.img) srcs.push(t.img);
+  }
+  return Array.from(new Set(srcs));
+}
+
+function preloadTilesetImages() {
+  if (!TILESET.useImages) return;
+  const srcs = _collectTileImageSrcs();
+  for (const src of srcs) {
+    if (!src || IMAGE_CACHE.has(src)) continue;
+    IMAGE_CACHE.set(src, "pending");
+    const img = new Image();
+    img.onload = () => { IMAGE_CACHE.set(src, "loaded"); _queueRerender(); };
+    img.onerror = () => { IMAGE_CACHE.set(src, "error"); };
+    img.src = src;
+  }
+}
+
+function isImageLoaded(src) {
+  return IMAGE_CACHE.get(src) === "loaded";
+}
+
+
+
+
 const $board = document.getElementById("board");
 const $fxLayer = document.getElementById("fxLayer");
 const $time = document.getElementById("time");
@@ -61,6 +104,7 @@ function newGame() {
   };
 
   fitTileSize();
+  preloadTilesetImages();
   renderBoard();
   updateHUD();
   hideOverlay();
@@ -162,24 +206,18 @@ function renderBoard() {
       el.dataset.c = String(c);
 
       if (tile) {
-        // Всегда ставим эмодзи как fallback, а поверх пытаемся подгрузить PNG.
+        // Emoji is always the fallback. If the PNG is preloaded, draw it as a background-image.
         el.textContent = tile.emoji;
+
+        // reset visuals
         el.style.backgroundImage = "";
-        if (TILESET.useImages && tile.img) {
-          const img = document.createElement("img");
-          img.className = "tile-img";
-          img.alt = tile.key;
-          img.draggable = false;
-          img.src = tile.img;
-          img.onload = () => {
-            // когда картинка точно загрузилась — убираем эмодзи
-            el.textContent = "";
-          };
-          img.onerror = () => {
-            // если файла нет/путь неверный — просто оставляем эмодзи
-            if (img && img.parentNode) img.parentNode.removeChild(img);
-          };
-          el.appendChild(img);
+        el.style.backgroundRepeat = "no-repeat";
+        el.style.backgroundPosition = "center";
+        el.style.backgroundSize = "75% 75%";
+
+        if (TILESET.useImages && tile.img && isImageLoaded(tile.img)) {
+          el.textContent = "";
+          el.style.backgroundImage = `url("${tile.img}")`;
         }
       }
 
