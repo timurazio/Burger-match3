@@ -6,7 +6,7 @@ const CFG = {
 };
 
 const TILESET = {
-  useImages: true, // поставь true, когда добавишь PNG в /assets
+  useImages: false, // поставь true, когда добавишь PNG в /assets
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
@@ -280,30 +280,39 @@ async function attemptLineShift(axis, index, delta, anchor) {
   // axis: "row" or "col"
   // index: row index or col index
   // delta: +1 or -1 (cyclic shift)
+  // "Normal fix": never leave the game in a locked (busy) state.
+  // Any unexpected error or early return must still unlock input.
   state.busy = true;
+  console.log("[move] shift", { axis, index, delta, anchor });
 
-  const backup = (axis === "row")
-    ? state.board[index].map(t => t ? { ...t } : null)
-    : state.board.map(row => row[index] ? { ...row[index] } : null);
+  try {
+    const backup = (axis === "row")
+      ? state.board[index].map(t => t ? { ...t } : null)
+      : state.board.map(row => row[index] ? { ...row[index] } : null);
 
-  applyLineShift(axis, index, delta);
-  renderBoard();
-
-  const matches = findAllMatches(state.board);
-  if (matches.length === 0) {
-    restoreLine(axis, index, backup);
+    applyLineShift(axis, index, delta);
     renderBoard();
+
+    const matches = findAllMatches(state.board);
+    if (matches.length === 0) {
+      restoreLine(axis, index, backup);
+      renderBoard();
+      console.log("[move] no matches → revert");
+      return;
+    }
+
+    state.moves += 1;
+    state.combo = 0;
+    state.lastMove = { type: "shift", axis, index, delta, anchor };
+    updateHUD();
+
+    await resolveMatchesLoop();
+  } catch (err) {
+    console.error("[error] during shift move", err);
+  } finally {
     state.busy = false;
-    return;
+    console.log("[unlock] input unlocked");
   }
-
-  state.moves += 1;
-  state.combo = 0;
-  state.lastMove = { type: "shift", axis, index, delta, anchor };
-  updateHUD();
-
-  await resolveMatchesLoop();
-  state.busy = false;
 }
 
 function applyLineShift(axis, index, delta) {
@@ -353,25 +362,33 @@ function applyColTransform(colIndex, dy) {
 }
 
 async function attemptSwap(a, b) {
+  // Kept for legacy swap mode: unlock in finally.
   state.busy = true;
-  swapTiles(a, b);
-  renderBoard();
-
-  const matches = findAllMatches(state.board);
-  if (matches.length === 0) {
+  console.log("[move] swap", { a, b });
+  try {
     swapTiles(a, b);
     renderBoard();
+
+    const matches = findAllMatches(state.board);
+    if (matches.length === 0) {
+      swapTiles(a, b);
+      renderBoard();
+      console.log("[move] no matches → revert");
+      return;
+    }
+
+    state.moves += 1;
+    state.combo = 0;
+    state.lastMove = { type: "swap", a, b };
+    updateHUD();
+
+    await resolveMatchesLoop();
+  } catch (err) {
+    console.error("[error] during swap move", err);
+  } finally {
     state.busy = false;
-    return;
+    console.log("[unlock] input unlocked");
   }
-
-  state.moves += 1;
-  state.combo = 0;
-  state.lastMove = { type: "swap", a, b };
-  updateHUD();
-
-  await resolveMatchesLoop();
-  state.busy = false;
 }
 
 function swapTiles(a, b) {
@@ -381,14 +398,34 @@ function swapTiles(a, b) {
 }
 
 async function resolveMatchesLoop() {
+  // "Normal fix": robust cascade resolver.
+  // - Treat any run length >= 3 as a match (handled in findAllMatches)
+  // - Avoid infinite/very long cascades with a hard safety cap
+  // - Add logs to quickly debug stuck states
   let chain = 0;
+  const MAX_CASCADES = 50;
+
+  console.log("[resolve] start");
 
   while (true) {
     const matches = findAllMatches(state.board);
-    if (matches.length === 0) break;
+    if (matches.length === 0) {
+      console.log("[resolve] done (no matches)");
+      break;
+    }
+
+    if (chain >= MAX_CASCADES) {
+      console.warn("[resolve] safety stop: too many cascades", { chain, matches: matches.length });
+      break;
+    }
 
     chain += 1;
     state.combo = chain;
+
+    console.log("[resolve] cascade", {
+      chain,
+      runs: matches.map(m => ({ dir: m.dir, key: m.key, len: m.cells.length }))
+    });
 
     // Create boosters only from the player's direct move (first chain)
     const createdBoosters = [];
