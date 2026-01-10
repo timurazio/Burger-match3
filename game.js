@@ -6,7 +6,7 @@ const CFG = {
 };
 
 const TILESET = {
-  useImages: false, // поставь true, когда добавишь PNG в /assets
+  useImages: true, // поставь true, когда добавишь PNG в /assets
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
@@ -141,6 +141,14 @@ function randTile() {
   const t = list[Math.floor(Math.random() * list.length)];
   return { ...t };
 }
+
+function makeBooster(key) {
+  const b = TILESET.boosters[key];
+  if (!b) throw new Error("Unknown booster: " + key);
+  // Clone to avoid shared references
+  return { ...b, booster: true };
+}
+
 
 function renderBoard() {
   $board.innerHTML = "";
@@ -302,8 +310,11 @@ async function attemptLineShift(axis, index, delta, anchor) {
   state.lastMove = { type: "shift", axis, index, delta, anchor };
   updateHUD();
 
-  await resolveMatchesLoop();
-  state.busy = false;
+  try {
+    await resolveMatchesLoop();
+  } finally {
+    state.busy = false;
+  }
 }
 
 function applyLineShift(axis, index, delta) {
@@ -370,8 +381,11 @@ async function attemptSwap(a, b) {
   state.lastMove = { type: "swap", a, b };
   updateHUD();
 
-  await resolveMatchesLoop();
-  state.busy = false;
+  try {
+    await resolveMatchesLoop();
+  } finally {
+    state.busy = false;
+  }
 }
 
 function swapTiles(a, b) {
