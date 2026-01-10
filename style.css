@@ -143,6 +143,14 @@ body{
   box-shadow: 0 10px 16px rgba(0,0,0,.12);
   cursor:pointer;
 }
+
+.tile-img{
+  width: 75%;
+  height: 75%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
 .tile::after{
   content:'';
   position:absolute;

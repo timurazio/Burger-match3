@@ -6,7 +6,8 @@ const CFG = {
 };
 
 const TILESET = {
-  useImages: false, // поставь true, когда добавишь PNG в /assets
+  // Включаем PNG по умолчанию. Если какого-то файла нет — покажем эмодзи как fallback.
+  useImages: true,
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
@@ -142,6 +143,14 @@ function randTile() {
   return { ...t };
 }
 
+// Создание бустера (в прошлой сборке эта функция отсутствовала — из-за этого
+// матчи на 4/5 могли не отрабатываться, хотя ввод уже не залипал).
+function makeBooster(key) {
+  const t = TILESET.boosters?.[key];
+  if (!t) return randTile();
+  return { ...t, isBooster: true };
+}
+
 function renderBoard() {
   $board.innerHTML = "";
   for (let r = 0; r < CFG.rows; r++) {
@@ -153,14 +162,24 @@ function renderBoard() {
       el.dataset.c = String(c);
 
       if (tile) {
-        if (TILESET.useImages) {
-          el.style.backgroundImage = `url('${tile.img}')`;
-          el.style.backgroundRepeat = "no-repeat";
-          el.style.backgroundPosition = "center";
-          el.style.backgroundSize = "75% 75%";
-          el.textContent = "";
-        } else {
-          el.textContent = tile.emoji;
+        // Всегда ставим эмодзи как fallback, а поверх пытаемся подгрузить PNG.
+        el.textContent = tile.emoji;
+        el.style.backgroundImage = "";
+        if (TILESET.useImages && tile.img) {
+          const img = document.createElement("img");
+          img.className = "tile-img";
+          img.alt = tile.key;
+          img.draggable = false;
+          img.src = tile.img;
+          img.onload = () => {
+            // когда картинка точно загрузилась — убираем эмодзи
+            el.textContent = "";
+          };
+          img.onerror = () => {
+            // если файла нет/путь неверный — просто оставляем эмодзи
+            if (img && img.parentNode) img.parentNode.removeChild(img);
+          };
+          el.appendChild(img);
         }
       }
 
