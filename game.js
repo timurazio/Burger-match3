@@ -217,6 +217,10 @@ function renderBoard() {
         el.classList.add("removing");
       } else {
         el.classList.remove("removing");
+        // Safety: if a previous pop animation left computed styles, reset.
+        el.style.animation = "";
+        el.style.transform = "";
+        el.style.opacity = "";
       }
 
       applyTileVisual(el, tile);
@@ -495,6 +499,17 @@ async function resolveMatchesLoop() {
     // Otherwise a new tile of the same key may land in the same cell and keep the class,
     // making it look like tiles disappear and then reappear later.
     state.removingSet = null;
+    // Hard cleanup: ensure no cell stays in 'removing' visual state.
+    for (let rr = 0; rr < CFG.rows; rr++) {
+      for (let cc = 0; cc < CFG.cols; cc++) {
+        const el = tileEls?.[rr]?.[cc];
+        if (!el) continue;
+        el.classList.remove("removing");
+        el.style.animation = "";
+        el.style.transform = "";
+        el.style.opacity = "";
+      }
+    }
 
     for (const key of toRemove) {
       const [r, c] = key.split(",").map(Number);
