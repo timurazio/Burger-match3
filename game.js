@@ -13,15 +13,15 @@ const TILESET = {
   baseTiles: [
     { key: "burger",   emoji: "🍔", img: "assets/burger.png"   },
     { key: "brownie",  emoji: "🍫", img: "assets/brownie.png"  },
-{ key: "chicken",  emoji: "🍗", img: "assets/nuggets.png"  },
+    { key: "chicken",  emoji: "🍗", img: "assets/nuggets.png"  },
     { key: "roll",     emoji: "🌯", img: "assets/roll.png"     },
     { key: "fries",    emoji: "🍟", img: "assets/fries.png"    },
-    { key: "cola",     emoji: "🥤", img: "assets/cola.png"     }
+    { key: "sauce",    emoji: "🥫", img: "assets/sauce.png"   },
   ],
 
   // BOOSTERS — создаются из матчей игрока
   boosters: {
-    sauce: { key: "sauce", emoji: "🥫", img: "assets/sauce.png" }, // 3 соуса взрывают соседние клетки 3×3
+    cola: { key: "cola",  emoji: "🥤", img: "assets/cola.png"  }, // 3 колы взрывают соседние клетки 3×3
   }
 };
 
@@ -534,10 +534,10 @@ async function resolveMatchesLoop() {
       toRemove.delete(cb.r + "," + cb.c);
     }
 
-    // Sauce booster effect:
-    // If a match includes "sauce" tiles (3+ sauces), each matched sauce explodes its neighbors (3x3).
+    // Cola booster effect:
+    // If a match includes "cola" tiles (3+ colas), each matched cola explodes its neighbors (3x3).
     for (const run of matches) {
-      if (run.key !== "sauce") continue;
+      if (run.key !== "cola") continue;
 
       for (const cell of run.cells) {
         spawnSplashAt(cell.r, cell.c);
@@ -626,7 +626,7 @@ function fillBoard(board) {
 
 function createBoostersFromPlayerMove(matches, lastMove) {
   // One-booster rule:
-  // - EXACTLY 4 in a straight line (touched by the player's move) -> SAUCE booster
+  // - 4+ в прямой линии (затронуто ходом игрока) -> COLA booster
   //
   // lastMove:
   // - swap: {type:"swap", a, b}
@@ -635,7 +635,7 @@ function createBoostersFromPlayerMove(matches, lastMove) {
   const created = [];
 
   for (const run of matches) {
-    if (run.cells.length !== 4) continue;
+    if (run.cells.length < 4) continue;
 
     if (lastMove.type === "swap") {
       const a = lastMove.a;
@@ -646,7 +646,7 @@ function createBoostersFromPlayerMove(matches, lastMove) {
       if (!containsA && !containsB) continue;
 
       const pos = pickBoosterPositionSwap(run, a, b);
-      state.board[pos.r][pos.c] = makeBooster("sauce");
+      state.board[pos.r][pos.c] = makeBooster("cola");
       created.push(pos);
       break;
     }
@@ -659,7 +659,7 @@ function createBoostersFromPlayerMove(matches, lastMove) {
       if (!touchesLine) continue;
 
       const pos = pickBoosterPositionShift(run, lastMove.anchor);
-      state.board[pos.r][pos.c] = makeBooster("sauce");
+      state.board[pos.r][pos.c] = makeBooster("cola");
       created.push(pos);
       break;
     }
@@ -907,4 +907,3 @@ document.querySelectorAll(".chip").forEach(btn => {
 document.addEventListener("DOMContentLoaded", () => {
   startWithPreloader();
 });
-
