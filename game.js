@@ -23,6 +23,19 @@ const TILESET = {
   boosters: {
     cola: { key: "cola",  emoji: "🥤", img: "assets/cola.png"  }, // 3 колы взрывают соседние клетки 3×3
   }
+
+
+// Booster pulse sync: keep all cola boosters pulsing in the same phase (iOS Safari looks cleaner too).
+const BOOSTER_PULSE_MS = 1050; // must match CSS duration: 1.05s
+let boosterPulseStartTS = null;
+
+function syncBoosterPulse(el) {
+  if (boosterPulseStartTS === null) boosterPulseStartTS = performance.now();
+  const now = performance.now();
+  const phase = (now - boosterPulseStartTS) % BOOSTER_PULSE_MS;
+  // Negative delay jumps the animation forward to the correct phase.
+  el.style.setProperty("--pulse-delay", `${-phase}ms`);
+}
 };
 
 const $board = document.getElementById("board");
@@ -221,8 +234,19 @@ function renderBoard() {
       }
 
       applyTileVisual(el, tile);
+
       // Cola is a booster tile: add a subtle pulse so it's readable as a special tile.
-      el.classList.toggle("booster", Boolean(tile && tile.key === "cola"));
+      const isBooster = Boolean(tile && tile.key === "cola");
+      if (isBooster) {
+        // Only set the offset when the booster first appears in this cell.
+        if (!el.classList.contains("booster")) syncBoosterPulse(el);
+        el.classList.add("booster");
+      } else {
+        if (el.classList.contains("booster")) {
+          el.classList.remove("booster");
+          el.style.removeProperty("--pulse-delay");
+        }
+      }
 
       const isSel = state.selected && state.selected.r === r && state.selected.c === c;
       el.classList.toggle("selected", Boolean(isSel));

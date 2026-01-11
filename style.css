@@ -172,7 +172,9 @@ body{
 }
 .tile.booster::before{
   animation: boosterPulse 1.05s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+  animation-delay: var(--pulse-delay, 0ms);
 }
+
 @keyframes boosterPulse{
   0%{transform: scale(1)}
   40%{transform: scale(1.08)}
