@@ -7,7 +7,7 @@ const CFG = {
 };
 
 const TILESET = {
-  useImages: true, // поставь true, когда добавишь PNG в /assets
+  useImages: true,
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
@@ -16,15 +16,16 @@ const TILESET = {
     { key: "icecream", emoji: "🍦", img: "assets/icecream.png" },
     { key: "chicken",  emoji: "🍗", img: "assets/nuggets.png"  },
     { key: "roll",     emoji: "🌯", img: "assets/roll.png"     },
-    { key: "sauce",    emoji: "🥫", img: "assets/sauce.png"    },
+    { key: "fries",    emoji: "🍟", img: "assets/fries.png"    },
+    { key: "cola",     emoji: "🥤", img: "assets/cola.png"     },
   ],
 
   // BOOSTERS — создаются из матчей игрока
   boosters: {
-    fries: { key: "fries", emoji: "🍟", img: "assets/fries.png" }, // чистит ряд
-    cola:  { key: "cola",  emoji: "🥤", img: "assets/cola.png"  }, // взрыв 3×3
+    sauce: { key: "sauce", emoji: "🥫", img: "assets/sauce.png" }, // взрыв соседних клеток при матче 3 соусов
   }
 };
+
 
 const $board = document.getElementById("board");
 const $fxLayer = document.getElementById("fxLayer");
@@ -460,70 +461,39 @@ async function resolveMatchesLoop() {
 
     // Base removals: all matched cells
     const toRemove = new Set();
-    const boosterQueue = [];
-    const processedBoosters = new Set();
 
-    for (const m of matches) {
-      for (const cell of m.cells) {
-        const key = cell.r + "," + cell.c;
-        toRemove.add(key);
-
-        const t = state.board[cell.r][cell.c];
-        if (t && (t.key === "cola" || t.key === "fries")) {
-          boosterQueue.push({ r: cell.r, c: cell.c, key: t.key });
-        }
-      }
+    // Collect all matched cells
+    for (const run of matches) {
+      for (const cell of run.cells) toRemove.add(cell.r + "," + cell.c);
     }
 
-    // Keep the created booster cells on board (do not remove them now)
-    for (const cb of createdBoosters) {
-      const k = cb.r + "," + cb.c;
+    // Create ONE booster (sauce) only from the player's direct move (first chain)
+    // Rule: a straight line of EXACTLY 4 tiles created/touched by the last move => create "sauce" booster.
+    const createdBoosters = [];
+    if (chain === 1 && state.lastMove) {
+      createdBoosters.push(...createBoostersFromPlayerMove(matches, state.lastMove));
+      state.lastMove = null; // use it once
+    }
+
+    // Keep the booster cell(s) on the board (do not remove them)
+    for (const pos of createdBoosters) {
+      const k = pos.r + "," + pos.c;
       toRemove.delete(k);
     }
 
-    // Booster chain reactions:
-    // - cola: clears 3x3 around itself (with splash)
-    // - fries: clears whole row (with fries scatter)
-    while (boosterQueue.length) {
-      const b = boosterQueue.shift();
-      const bId = b.r + "," + b.c + ":" + b.key;
-      if (processedBoosters.has(bId)) continue;
-      processedBoosters.add(bId);
-
-      if (b.key === "cola") {
-        spawnSplashAt(b.r, b.c);
-        for (let rr = b.r - 1; rr <= b.r + 1; rr++) {
-          for (let cc = b.c - 1; cc <= b.c + 1; cc++) {
+    // Sauce booster effect:
+    // If a match includes "sauce" tiles (3+ sauces), each matched sauce explodes its neighbors (3x3).
+    for (const run of matches) {
+      if (run.key !== "sauce") continue;
+      for (const cell of run.cells) {
+        spawnSplashAt(cell.r, cell.c);
+        for (let rr = cell.r - 1; rr <= cell.r + 1; rr++) {
+          for (let cc = cell.c - 1; cc <= cell.c + 1; cc++) {
             if (rr < 0 || rr >= CFG.rows || cc < 0 || cc >= CFG.cols) continue;
-            const k = rr + "," + cc;
-            if (!toRemove.has(k)) {
-              toRemove.add(k);
-              const t2 = state.board[rr][cc];
-              if (t2 && (t2.key === "cola" || t2.key === "fries")) {
-                boosterQueue.push({ r: rr, c: cc, key: t2.key });
-              }
-            }
-          }
-        }
-      } else if (b.key === "fries") {
-        spawnFriesAt(b.r, b.c);
-        for (let cc = 0; cc < CFG.cols; cc++) {
-          const k = b.r + "," + cc;
-          if (!toRemove.has(k)) {
-            toRemove.add(k);
-            const t2 = state.board[b.r][cc];
-            if (t2 && (t2.key === "cola" || t2.key === "fries")) {
-              boosterQueue.push({ r: b.r, c: cc, key: t2.key });
-            }
+            toRemove.add(rr + "," + cc);
           }
         }
       }
-    }
-
-    // Make sure created boosters are not removed even after chain effects
-    for (const cb of createdBoosters) {
-      const k = cb.r + "," + cb.c;
-      toRemove.delete(k);
     }
 
     const removedCount = toRemove.size;
@@ -590,75 +560,42 @@ function fillBoard(board) {
 
 
 function createBoostersFromPlayerMove(matches, lastMove) {
-  // Rules:
-  // - 4 in a straight line -> FRIES
-  // - 5+ in a straight line -> COLA
-  // - T/L shapes (intersection) -> COLA at intersection
+  // One-booster rule:
+  // - EXACTLY 4 in a straight line (touched by the player's move) -> SAUCE booster
   //
   // lastMove:
   // - swap: {type:"swap", a, b}
   // - shift: {type:"shift", axis, index, delta, anchor}
 
-  const cellKey = (r,c) => r + "," + c;
-
-  // Intersection detection
-  const hitCount = new Map();
-  for (const run of matches) {
-    for (const cell of run.cells) {
-      const k = cellKey(cell.r, cell.c);
-      hitCount.set(k, (hitCount.get(k) || 0) + 1);
-    }
-  }
-
   const created = [];
 
-  const preferred = [];
-  if (lastMove.type === "swap") preferred.push(lastMove.b, lastMove.a);
-  if (lastMove.type === "shift") preferred.push(lastMove.anchor);
+  for (const run of matches) {
+    if (run.cells.length !== 4) continue;
 
-  // Best intersection (closest to preferred)
-  let bestIntersection = null;
-  let bestScore = Infinity;
-  for (const [k, cnt] of hitCount.entries()) {
-    if (cnt < 2) continue;
-    const [r,c] = k.split(",").map(Number);
-    const score = minDist({r,c}, preferred);
-    if (score < bestScore) { bestScore = score; bestIntersection = { r, c }; }
-  }
-
-  if (bestIntersection) {
-    state.board[bestIntersection.r][bestIntersection.c] = makeBooster("cola");
-    created.push(bestIntersection);
-    return created;
-  }
-
-  // Straight runs >= 4
-  const candidateRuns = matches
-    .filter(run => run.cells.length >= 4)
-    .sort((x,y) => y.cells.length - x.cells.length);
-
-  for (const run of candidateRuns) {
+    // Only straight lines already (runs are "h" or "v")
     if (lastMove.type === "swap") {
-      const a = lastMove.a, b = lastMove.b;
+      const a = lastMove.a;
+      const b = lastMove.b;
+
       const containsA = run.cells.some(c => c.r === a.r && c.c === a.c);
       const containsB = run.cells.some(c => c.r === b.r && c.c === b.c);
       if (!containsA && !containsB) continue;
 
-      const boosterKey = (run.cells.length >= 5) ? "cola" : "fries";
       const pos = pickBoosterPositionSwap(run, a, b);
-      state.board[pos.r][pos.c] = makeBooster(boosterKey);
+      state.board[pos.r][pos.c] = makeBooster("sauce");
       created.push(pos);
       break;
-    } else if (lastMove.type === "shift") {
+    }
+
+    if (lastMove.type === "shift") {
       const axis = lastMove.axis;
       const idx = lastMove.index;
 
       const touchesLine = run.cells.some(c => (axis === "row") ? (c.r === idx) : (c.c === idx));
       if (!touchesLine) continue;
 
-      const boosterKey = (run.cells.length >= 5) ? "cola" : "fries";
       const pos = pickBoosterPositionShift(run, lastMove.anchor);
-      state.board[pos.r][pos.c] = makeBooster(boosterKey);
+      state.board[pos.r][pos.c] = makeBooster("sauce");
       created.push(pos);
       break;
     }
