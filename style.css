@@ -172,9 +172,7 @@ body{
 }
 .tile.booster::before{
   animation: boosterPulse 1.05s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
-  animation-delay: var(--pulse-delay, 0ms);
 }
-
 @keyframes boosterPulse{
   0%{transform: scale(1)}
   40%{transform: scale(1.08)}
@@ -310,6 +308,35 @@ code{background: rgba(0,0,0,.15); padding: 2px 6px; border-radius: 8px}
   100%{opacity:0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot))}
 }
 
+
+
+/* Dot burst (booster explosion particles) */
+.fx-dots{
+  width: 1px;
+  height: 1px;
+  opacity: 1;
+}
+.fx-dots .dot{
+  position:absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.7);
+  box-shadow: 0 8px 16px rgba(0,0,0,.12);
+  transform: translate(-50%,-50%) scale(.6);
+  opacity: 0;
+  animation: dotBurst 520ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+  will-change: transform, opacity;
+}
+
+@keyframes dotBurst{
+  0%{opacity:0; transform: translate(-50%,-50%) scale(.45)}
+  18%{opacity: var(--a, .85); transform: translate(-50%,-50%) scale(1)}
+  100%{opacity:0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(var(--s, 1))}
+}
 
 }
 

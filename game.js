@@ -23,19 +23,6 @@ const TILESET = {
   boosters: {
     cola: { key: "cola",  emoji: "🥤", img: "assets/cola.png"  }, // 3 колы взрывают соседние клетки 3×3
   }
-
-
-// Booster pulse sync: keep all cola boosters pulsing in the same phase (iOS Safari looks cleaner too).
-const BOOSTER_PULSE_MS = 1050; // must match CSS duration: 1.05s
-let boosterPulseStartTS = null;
-
-function syncBoosterPulse(el) {
-  if (boosterPulseStartTS === null) boosterPulseStartTS = performance.now();
-  const now = performance.now();
-  const phase = (now - boosterPulseStartTS) % BOOSTER_PULSE_MS;
-  // Negative delay jumps the animation forward to the correct phase.
-  el.style.setProperty("--pulse-delay", `${-phase}ms`);
-}
 };
 
 const $board = document.getElementById("board");
@@ -234,19 +221,8 @@ function renderBoard() {
       }
 
       applyTileVisual(el, tile);
-
       // Cola is a booster tile: add a subtle pulse so it's readable as a special tile.
-      const isBooster = Boolean(tile && tile.key === "cola");
-      if (isBooster) {
-        // Only set the offset when the booster first appears in this cell.
-        if (!el.classList.contains("booster")) syncBoosterPulse(el);
-        el.classList.add("booster");
-      } else {
-        if (el.classList.contains("booster")) {
-          el.classList.remove("booster");
-          el.style.removeProperty("--pulse-delay");
-        }
-      }
+      el.classList.toggle("booster", Boolean(tile && tile.key === "cola"));
 
       const isSel = state.selected && state.selected.r === r && state.selected.c === c;
       el.classList.toggle("selected", Boolean(isSel));
@@ -563,7 +539,7 @@ async function resolveMatchesLoop() {
       if (run.key !== "cola") continue;
 
       for (const cell of run.cells) {
-        spawnSplashAt(cell.r, cell.c);
+        spawnDotBurstAt(cell.r, cell.c);
 
         for (let rr = cell.r - 1; rr <= cell.r + 1; rr++) {
           for (let cc = cell.c - 1; cc <= cell.c + 1; cc++) {
@@ -764,6 +740,58 @@ function findAllMatches(board) {
   }
 
   return matches;
+}
+
+
+function spawnDotBurstAt(r, c) {
+  const pos = tileCenterPx(r, c);
+  if (!pos) return;
+
+  const el = document.createElement("div");
+  el.className = "fx fx-dots";
+  el.style.left = pos.x + "px";
+  el.style.top = pos.y + "px";
+
+  // Palette tuned to feel like soda/foam + some darker specks (as in the reference video)
+  const palette = [
+    "rgba(255,255,255,.80)",
+    "rgba(255, 236, 170, .68)",
+    "rgba(210, 30, 0, .35)",
+    "rgba(45, 30, 24, .28)",
+    "rgba(40, 95, 70, .30)",
+  ];
+
+  const count = 22;
+  for (let i = 0; i < count; i++) {
+    const d = document.createElement("span");
+    d.className = "dot";
+
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 28 + Math.random() * 46;
+
+    // Slight downward bias (gravity feel)
+    const dx = Math.cos(ang) * dist;
+    const dy = Math.sin(ang) * dist + (6 + Math.random() * 10);
+
+    const size = 4 + Math.random() * 6;
+    const alpha = 0.55 + Math.random() * 0.35;
+    const scaleEnd = 0.85 + Math.random() * 0.55;
+    const delay = Math.floor(Math.random() * 60);
+
+    d.style.width = size + "px";
+    d.style.height = size + "px";
+    d.style.background = palette[Math.floor(Math.random() * palette.length)];
+    d.style.setProperty("--dx", dx.toFixed(1) + "px");
+    d.style.setProperty("--dy", dy.toFixed(1) + "px");
+    d.style.setProperty("--a", alpha.toFixed(2));
+    d.style.setProperty("--s", scaleEnd.toFixed(2));
+    d.style.setProperty("--delay", delay + "ms");
+
+    el.appendChild(d);
+  }
+
+  $fxLayer.appendChild(el);
+  cleanupFx(el, 720);
 }
 
 function spawnSplashAt(r, c) {
