@@ -152,6 +152,11 @@ body{
   font-weight: 900;
   font-size: 18px;
 }
+.bubble-row.coins #coins{
+  font-size: 20px; /* +2px */
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
 .coin{display:inline-flex; align-items:center}
 .hud{
   /* HUD-панель (Счет/Комбо/Ходы) скрыта по запросу */
