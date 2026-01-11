@@ -42,8 +42,7 @@ const $playAgain = document.getElementById("playAgain");
 const $resetBtn = document.getElementById("resetBtn");
 
 let state;
-let tileEls = null;
-let tileInnerEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
+let tileEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
 
 function newGame() {
   state = {
@@ -154,11 +153,10 @@ function makeBooster(key) {
 }
 
 function ensureBoardDOM() {
-  if (tileEls) return;
+  const needsRebuild = !tileEls || tileEls.length !== CFG.rows || tileEls[0]?.length !== CFG.cols;
+  if (!needsRebuild) return;
 
   tileEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
-  tileInnerEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
-
   const frag = document.createDocumentFragment();
 
   for (let r = 0; r < CFG.rows; r++) {
@@ -168,49 +166,38 @@ function ensureBoardDOM() {
       el.dataset.r = String(r);
       el.dataset.c = String(c);
 
-      const inner = document.createElement("div");
-      inner.className = "tileInner";
-      el.appendChild(inner);
-
+      // Attach listeners once (no rebind on every render)
       el.addEventListener("pointerdown", onTilePointerDown);
       el.addEventListener("pointermove", onTilePointerMove);
       el.addEventListener("pointerup", onTilePointerUp);
       el.addEventListener("pointercancel", onTilePointerCancel);
 
       tileEls[r][c] = el;
-      tileInnerEls[r][c] = inner;
-
       frag.appendChild(el);
     }
   }
 
-  // Cells are fixed in DOM (prevents flicker).
+  // Replace once. Subsequent renders only update styles (prevents flicker).
   $board.replaceChildren(frag);
 }
 
 function applyTileVisual(el, tile) {
-  // 'el' here is the INNER layer (.tileInner)
-  const prevKey = el.dataset.key || "";
-
   if (!tile) {
-    if (prevKey !== "") {
-      el.dataset.key = "";
-      el.style.backgroundImage = "";
-      el.textContent = "";
-    }
+    el.dataset.key = "";
+    el.style.backgroundImage = "";
+    el.textContent = "";
     return;
   }
 
-  if (prevKey === tile.key) {
-    // Same tile type already rendered here; avoid reapplying background-image every render (prevents blinking).
-    return;
-  }
-
+  // Always keep dataset key in sync (cells are fixed; tiles move between cells).
   el.dataset.key = tile.key;
   el.textContent = "";
 
   if (TILESET.useImages) {
     el.style.backgroundImage = `url('${tile.img}')`;
+    el.style.backgroundRepeat = "no-repeat";
+    el.style.backgroundPosition = "center";
+    el.style.backgroundSize = "88% 88%";
   } else {
     el.style.backgroundImage = "";
     el.textContent = tile.emoji;
@@ -223,25 +210,20 @@ function renderBoard() {
   for (let r = 0; r < CFG.rows; r++) {
     for (let c = 0; c < CFG.cols; c++) {
       const el = tileEls[r][c];
-      const inner = tileInnerEls[r][c];
       const tile = state.board[r][c];
 
-      const wasRemoving = el.classList.contains("removing");
-      const nowRemoving = Boolean(state.removingSet && state.removingSet.has(r + "," + c));
-
-      if (nowRemoving) {
-        if (!wasRemoving) el.classList.add("removing");
+      // Keep removing class strictly tied to the current removing set.
+      if (state.removingSet && state.removingSet.has(r + "," + c)) {
+        el.classList.add("removing");
       } else {
-        if (wasRemoving) {
-          el.classList.remove("removing");
-          // If a previous pop animation left computed styles, reset only on the inner layer.
-          inner.style.animation = "";
-          inner.style.transform = "";
-          inner.style.opacity = "";
-        }
+        el.classList.remove("removing");
+        // Safety: if a previous pop animation left computed styles, reset.
+        el.style.animation = "";
+        el.style.transform = "";
+        el.style.opacity = "";
       }
 
-      applyTileVisual(inner, tile);
+      applyTileVisual(el, tile);
 
       const isSel = state.selected && state.selected.r === r && state.selected.c === c;
       el.classList.toggle("selected", Boolean(isSel));
@@ -347,10 +329,17 @@ async function onTilePointerUp(e) {
     await sleep(150);
 
     nodes.forEach(n => (n.style.transition = ""));
+
+    // Commit shift BEFORE clearing transforms to avoid a one-frame "jump" flicker.
+    if (delta !== 0) {
+      applyLineShift(axis, index, delta);
+      renderBoard();
+    }
+
     clearLineTransforms();
 
     if (delta !== 0) {
-      await attemptLineShift(axis, index, delta, { r: startR, c: startC });
+      await attemptLineShift(axis, index, delta, { r: startR, c: startC }, true);
     }
 
     state.drag = null;
@@ -371,14 +360,16 @@ function isAdjacent(a, b) { // legacy helper, not used now
   return (dr + dc) === 1;
 }
 
-async function attemptLineShift(axis, index, delta, anchor) {
+async function attemptLineShift(axis, index, delta, anchor, alreadyShifted = false) {
   // axis: "row" or "col"
   // index: row index or col index
   // delta: +1 or -1 (cyclic shift by ONE tile)
   state.busy = true;
 
-  applyLineShift(axis, index, delta);
-  renderBoard();
+  if (!alreadyShifted) {
+    applyLineShift(axis, index, delta);
+    renderBoard();
+  }
 
   // Count the move even if it doesn't create matches (line stays shifted now)
   state.moves += 1;
