@@ -154,7 +154,8 @@ body{
 }
 .coin{display:inline-flex; align-items:center}
 .hud{
-  display:flex;
+  /* HUD-панель (Счет/Комбо/Ходы) скрыта по запросу */
+  display:none;
   justify-content:space-between;
   gap: 10px;
   margin: 10px 0 12px;
