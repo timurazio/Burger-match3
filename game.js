@@ -22,7 +22,7 @@ const TILESET = {
 
   // BOOSTERS — создаются из матчей игрока
   boosters: {
-    sauce: { key: "sauce", emoji: "🥫", img: "assets/sauce.png" }, // взрыв соседних клеток при матче 3 соусов
+    sauce: { key: "sauce", emoji: "🥫", img: "assets/sauce.png" }, // 3 соуса взрывают соседние клетки 3×3
   }
 };
 
@@ -462,31 +462,26 @@ async function resolveMatchesLoop() {
     // Base removals: all matched cells
     const toRemove = new Set();
 
-    // Collect all matched cells
     for (const run of matches) {
-      for (const cell of run.cells) toRemove.add(cell.r + "," + cell.c);
+      for (const cell of run.cells) {
+        toRemove.add(cell.r + "," + cell.c);
+      }
     }
 
-    // Create ONE booster (sauce) only from the player's direct move (first chain)
-    // Rule: a straight line of EXACTLY 4 tiles created/touched by the last move => create "sauce" booster.
-    const createdBoosters = [];
-    if (chain === 1 && state.lastMove) {
-      createdBoosters.push(...createBoostersFromPlayerMove(matches, state.lastMove));
-      state.lastMove = null; // use it once
-    }
-
-    // Keep the booster cell(s) on the board (do not remove them)
-    for (const pos of createdBoosters) {
-      const k = pos.r + "," + pos.c;
-      toRemove.delete(k);
+    // Create booster(s) only from the player's direct move (first chain)
+    // Keep created booster cells on board (do not remove them now)
+    for (const cb of createdBoosters) {
+      toRemove.delete(cb.r + "," + cb.c);
     }
 
     // Sauce booster effect:
     // If a match includes "sauce" tiles (3+ sauces), each matched sauce explodes its neighbors (3x3).
     for (const run of matches) {
       if (run.key !== "sauce") continue;
+
       for (const cell of run.cells) {
         spawnSplashAt(cell.r, cell.c);
+
         for (let rr = cell.r - 1; rr <= cell.r + 1; rr++) {
           for (let cc = cell.c - 1; cc <= cell.c + 1; cc++) {
             if (rr < 0 || rr >= CFG.rows || cc < 0 || cc >= CFG.cols) continue;
@@ -572,7 +567,6 @@ function createBoostersFromPlayerMove(matches, lastMove) {
   for (const run of matches) {
     if (run.cells.length !== 4) continue;
 
-    // Only straight lines already (runs are "h" or "v")
     if (lastMove.type === "swap") {
       const a = lastMove.a;
       const b = lastMove.b;
