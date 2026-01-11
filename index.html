@@ -41,16 +41,23 @@
         </div>
 </div>
     </section>
-<section class="board-card">
+
+    <section class="hud">
+      <div class="stat">Счет: <strong id="score">0</strong></div>
+      <div class="stat">Комбо: <strong id="combo">0</strong></div>
+      <div class="stat">Ходы: <strong id="moves">0</strong></div>
+    </section>
+
+    <section class="board-card">
       <div id="board" class="board" aria-label="Игровое поле"></div>
       <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
       <div id="overlay" class="overlay hidden">
         <div class="overlay-card">
         <div class="overlay-title">Игра окончена</div>
         <div class="overlay-stats">
-          <div class="ost-row">
-<div class="ost-row">
-<div class="ost-row"><span>👑 Короны</span><strong id="finalCrowns">0</strong></div>
+          <div class="ost-row"><span>Счет</span><strong id="finalScore">0</strong></div>
+          <div class="ost-row"><span>Ходы</span><strong id="finalMoves">0</strong></div>
+          <div class="ost-row"><span>👑 Короны</span><strong id="finalCrowns">0</strong></div>
         </div>
         <div class="overlay-actions">
           <button id="playAgain" class="primary" type="button">Играть снова</button>
