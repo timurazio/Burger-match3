@@ -219,7 +219,6 @@ function renderBoard() {
         el.classList.remove("removing");
         // Safety: if a previous pop animation left computed styles, reset.
         el.style.animation = "";
-        el.style.transform = "";
         el.style.opacity = "";
       }
 
@@ -320,7 +319,7 @@ async function onTilePointerUp(e) {
     ));
 
     nodes.forEach(n => {
-      n.style.transition = "transform 140ms cubic-bezier(.2,.8,.2,1)";
+      n.style.transition = "translate 0.24s cubic-bezier(.2,.85,.2,1)"
     });
 
     if (axis === "row") applyRowTransform(index, target);
@@ -329,17 +328,10 @@ async function onTilePointerUp(e) {
     await sleep(150);
 
     nodes.forEach(n => (n.style.transition = ""));
-
-    // Commit shift BEFORE clearing transforms to avoid a one-frame "jump" flicker.
-    if (delta !== 0) {
-      applyLineShift(axis, index, delta);
-      renderBoard();
-    }
-
     clearLineTransforms();
 
     if (delta !== 0) {
-      await attemptLineShift(axis, index, delta, { r: startR, c: startC }, true);
+      await attemptLineShift(axis, index, delta, { r: startR, c: startC });
     }
 
     state.drag = null;
@@ -360,16 +352,14 @@ function isAdjacent(a, b) { // legacy helper, not used now
   return (dr + dc) === 1;
 }
 
-async function attemptLineShift(axis, index, delta, anchor, alreadyShifted = false) {
+async function attemptLineShift(axis, index, delta, anchor) {
   // axis: "row" or "col"
   // index: row index or col index
   // delta: +1 or -1 (cyclic shift by ONE tile)
   state.busy = true;
 
-  if (!alreadyShifted) {
-    applyLineShift(axis, index, delta);
-    renderBoard();
-  }
+  applyLineShift(axis, index, delta);
+  renderBoard();
 
   // Count the move even if it doesn't create matches (line stays shifted now)
   state.moves += 1;
@@ -434,7 +424,7 @@ function getTileStepPx() {
 
 function clearLineTransforms() {
   const nodes = $board.querySelectorAll(".tile");
-  nodes.forEach(n => (n.style.transform = ""));
+  nodes.forEach(n => (n.style.translate = ""));
 }
 
 function applyRowTransform(rowIndex, dx) {
@@ -451,7 +441,7 @@ function applyRowTransform(rowIndex, dx) {
     if (dx < 0 && c === 0) x = dx + span;
     if (dx > 0 && c === CFG.cols - 1) x = dx - span;
 
-    n.style.transform = `translateX(${x}px)`;
+    n.style.translate = `${x}px 0px`;
   });
 }
 function applyColTransform(colIndex, dy) {
@@ -466,7 +456,7 @@ function applyColTransform(colIndex, dy) {
     if (dy < 0 && r === 0) y = dy + span;
     if (dy > 0 && r === CFG.rows - 1) y = dy - span;
 
-    n.style.transform = `translateY(${y}px)`;
+    n.style.translate = `0px ${y}px`;
   });
 }
 
@@ -569,7 +559,6 @@ async function resolveMatchesLoop() {
         if (!el) continue;
         el.classList.remove("removing");
         el.style.animation = "";
-        el.style.transform = "";
         el.style.opacity = "";
       }
     }
