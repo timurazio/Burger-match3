@@ -43,6 +43,7 @@ const $playAgain = document.getElementById("playAgain");
 const $resetBtn = document.getElementById("resetBtn");
 
 let state;
+let tileEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
 
 function newGame() {
   state = {
@@ -61,6 +62,7 @@ function newGame() {
   };
 
   fitTileSize();
+  ensureBoardDOM();
   renderBoard();
   updateHUD();
   hideOverlay();
@@ -151,37 +153,91 @@ function makeBooster(key) {
 }
 
 
-function renderBoard() {
-  $board.innerHTML = "";
+function ensureBoardDOM() {
+  const needsRebuild = !tileEls || tileEls.length !== CFG.rows || tileEls[0]?.length !== CFG.cols;
+  if (!needsRebuild) return;
+
+  tileEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
+  const frag = document.createDocumentFragment();
+
   for (let r = 0; r < CFG.rows; r++) {
     for (let c = 0; c < CFG.cols; c++) {
-      const tile = state.board[r][c];
       const el = document.createElement("div");
       el.className = "tile";
       el.dataset.r = String(r);
       el.dataset.c = String(c);
 
-      if (tile) {
-        if (TILESET.useImages) {
-          el.style.backgroundImage = `url('${tile.img}')`;
-          el.style.backgroundRepeat = "no-repeat";
-          el.style.backgroundPosition = "center";
-          el.style.backgroundSize = "88% 88%";
-          el.textContent = "";
-        } else {
-          el.textContent = tile.emoji;
-        }
-      }
-
-      if (state.selected && state.selected.r === r && state.selected.c === c) {
-        el.classList.add("selected");
-      }
-
+      // Attach listeners once (no rebind on every render)
       el.addEventListener("pointerdown", onTilePointerDown);
       el.addEventListener("pointermove", onTilePointerMove);
       el.addEventListener("pointerup", onTilePointerUp);
       el.addEventListener("pointercancel", onTilePointerCancel);
-      $board.appendChild(el);
+
+      tileEls[r][c] = el;
+      frag.appendChild(el);
+    }
+  }
+
+  // Replace once. Subsequent renders only update styles (prevents flicker).
+  $board.replaceChildren(frag);
+}
+
+
+function applyTileVisual(el, tile) {
+  // Keep removing animation unless we are redrawing the cell with a new tile.
+  // (Prevents visual blink during line shifts.)
+
+  const prevKey = el.dataset.key || "";
+  const nextKey = tile ? tile.key : "";
+
+  if (!tile) {
+    el.dataset.key = "";
+    el.classList.remove("removing");
+    el.style.backgroundImage = "";
+    el.textContent = "";
+    return;
+  }
+
+  // Only update visuals if tile kind changed.
+  if (prevKey !== nextKey) {
+    el.dataset.key = nextKey;
+    el.classList.remove("removing");
+    el.textContent = "";
+
+    if (TILESET.useImages) {
+      el.style.backgroundImage = `url('${tile.img}')`;
+      el.style.backgroundRepeat = "no-repeat";
+      el.style.backgroundPosition = "center";
+      el.style.backgroundSize = "88% 88%";
+    } else {
+      el.style.backgroundImage = "";
+      el.textContent = tile.emoji;
+    }
+  } else {
+    // Same tile type; ensure image mode is consistent without forcing a repaint.
+    if (TILESET.useImages && !el.style.backgroundImage) {
+      el.style.backgroundImage = `url('${tile.img}')`;
+      el.style.backgroundRepeat = "no-repeat";
+      el.style.backgroundPosition = "center";
+      el.style.backgroundSize = "88% 88%";
+      el.textContent = "";
+    }
+  }
+}
+
+
+function renderBoard() {
+  ensureBoardDOM();
+
+  for (let r = 0; r < CFG.rows; r++) {
+    for (let c = 0; c < CFG.cols; c++) {
+      const el = tileEls[r][c];
+      const tile = state.board[r][c];
+
+      applyTileVisual(el, tile);
+
+      const isSel = state.selected && state.selected.r === r && state.selected.c === c;
+      el.classList.toggle("selected", Boolean(isSel));
     }
   }
 }
@@ -505,11 +561,11 @@ async function resolveMatchesLoop() {
 }
 
 function markRemoving(toRemove) {
-  const nodes = $board.querySelectorAll(".tile");
-  for (const el of nodes) {
-    const r = el.dataset.r;
-    const c = el.dataset.c;
-    if (toRemove.has(r + "," + c)) el.classList.add("removing");
+  ensureBoardDOM();
+  for (let r = 0; r < CFG.rows; r++) {
+    for (let c = 0; c < CFG.cols; c++) {
+      if (toRemove.has(r + "," + c)) tileEls[r][c].classList.add("removing");
+    }
   }
 }
 
