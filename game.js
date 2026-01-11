@@ -329,10 +329,17 @@ async function onTilePointerUp(e) {
     await sleep(150);
 
     nodes.forEach(n => (n.style.transition = ""));
+
+    // Commit shift BEFORE clearing transforms to avoid a one-frame "jump" flicker.
+    if (delta !== 0) {
+      applyLineShift(axis, index, delta);
+      renderBoard();
+    }
+
     clearLineTransforms();
 
     if (delta !== 0) {
-      await attemptLineShift(axis, index, delta, { r: startR, c: startC });
+      await attemptLineShift(axis, index, delta, { r: startR, c: startC }, true);
     }
 
     state.drag = null;
@@ -353,14 +360,16 @@ function isAdjacent(a, b) { // legacy helper, not used now
   return (dr + dc) === 1;
 }
 
-async function attemptLineShift(axis, index, delta, anchor) {
+async function attemptLineShift(axis, index, delta, anchor, alreadyShifted = false) {
   // axis: "row" or "col"
   // index: row index or col index
   // delta: +1 or -1 (cyclic shift by ONE tile)
   state.busy = true;
 
-  applyLineShift(axis, index, delta);
-  renderBoard();
+  if (!alreadyShifted) {
+    applyLineShift(axis, index, delta);
+    renderBoard();
+  }
 
   // Count the move even if it doesn't create matches (line stays shifted now)
   state.moves += 1;
