@@ -42,8 +42,8 @@ body{
   cursor:pointer;
 }
 .close{
-  width:52px; height:52px;
-  border-radius: 16px;
+  width:35px; height:35px;
+  border-radius: 11px;
   border: 0;
   background: rgba(255,255,255,.92);
   color:#3D2B1F;
@@ -63,9 +63,41 @@ body{
   height: 24px;
   display:block;
 }
+
+.close .ui-icon{
+  width: 16px;
+  height: 16px;
+}
 .coin .ui-icon{
   width: 18px;
   height: 18px;
+}
+
+.crown-circle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.bubble-row.coins .crown-circle{
+  width: 44px;
+  height: 44px;
+}
+.bubble-row.coins .crown-circle .ui-icon{
+  width: 36px;
+  height: 36px;
+}
+
+.overlay .crown-circle{
+  width: 60px;
+  height: 60px;
+}
+.overlay .crown-circle .ui-icon{
+  width: 48px;
+  height: 48px;
 }
 .label-with-icon{
   display:inline-flex;
