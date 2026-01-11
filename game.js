@@ -58,6 +58,7 @@ function newGame() {
     timerId: null,
     lastSwap: null,
     lastMove: null,
+    removingSet: null,
     drag: null
   };
 
@@ -184,44 +185,25 @@ function ensureBoardDOM() {
 
 
 function applyTileVisual(el, tile) {
-  // Keep removing animation unless we are redrawing the cell with a new tile.
-  // (Prevents visual blink during line shifts.)
-
-  const prevKey = el.dataset.key || "";
-  const nextKey = tile ? tile.key : "";
-
   if (!tile) {
     el.dataset.key = "";
-    el.classList.remove("removing");
     el.style.backgroundImage = "";
     el.textContent = "";
     return;
   }
 
-  // Only update visuals if tile kind changed.
-  if (prevKey !== nextKey) {
-    el.dataset.key = nextKey;
-    el.classList.remove("removing");
-    el.textContent = "";
+  // Always keep dataset key in sync (cells are fixed; tiles move between cells).
+  el.dataset.key = tile.key;
+  el.textContent = "";
 
-    if (TILESET.useImages) {
-      el.style.backgroundImage = `url('${tile.img}')`;
-      el.style.backgroundRepeat = "no-repeat";
-      el.style.backgroundPosition = "center";
-      el.style.backgroundSize = "88% 88%";
-    } else {
-      el.style.backgroundImage = "";
-      el.textContent = tile.emoji;
-    }
+  if (TILESET.useImages) {
+    el.style.backgroundImage = `url('${tile.img}')`;
+    el.style.backgroundRepeat = "no-repeat";
+    el.style.backgroundPosition = "center";
+    el.style.backgroundSize = "88% 88%";
   } else {
-    // Same tile type; ensure image mode is consistent without forcing a repaint.
-    if (TILESET.useImages && !el.style.backgroundImage) {
-      el.style.backgroundImage = `url('${tile.img}')`;
-      el.style.backgroundRepeat = "no-repeat";
-      el.style.backgroundPosition = "center";
-      el.style.backgroundSize = "88% 88%";
-      el.textContent = "";
-    }
+    el.style.backgroundImage = "";
+    el.textContent = tile.emoji;
   }
 }
 
@@ -233,6 +215,13 @@ function renderBoard() {
     for (let c = 0; c < CFG.cols; c++) {
       const el = tileEls[r][c];
       const tile = state.board[r][c];
+
+      // Keep removing class strictly tied to the current removing set.
+      if (state.removingSet && state.removingSet.has(r + "," + c)) {
+        el.classList.add("removing");
+      } else {
+        el.classList.remove("removing");
+      }
 
       applyTileVisual(el, tile);
 
@@ -544,6 +533,11 @@ async function resolveMatchesLoop() {
     markRemoving(toRemove);
     await sleep(260);
 
+    // Animation done — from here on we should stop treating these cells as "removing".
+    // Otherwise a new tile of the same key may land in the same cell and keep the class,
+    // making it look like tiles disappear and then reappear later.
+    state.removingSet = null;
+
     for (const key of toRemove) {
       const [r, c] = key.split(",").map(Number);
       state.board[r][c] = null;
@@ -562,6 +556,8 @@ async function resolveMatchesLoop() {
 
 function markRemoving(toRemove) {
   ensureBoardDOM();
+  // Save the set so renderBoard can consistently apply/remove the class.
+  state.removingSet = toRemove;
   for (let r = 0; r < CFG.rows; r++) {
     for (let c = 0; c < CFG.cols; c++) {
       if (toRemove.has(r + "," + c)) tileEls[r][c].classList.add("removing");
