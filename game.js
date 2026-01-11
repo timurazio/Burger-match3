@@ -272,8 +272,8 @@ function onTilePointerMove(e) {
 
   clearLineTransforms();
 
-  const tileSize = getTileSizePx();
-  const maxShift = tileSize * 0.95;
+    const step = getTileStepPx();
+  const maxShift = step * 0.95;
   const clampedDx = Math.max(-maxShift, Math.min(maxShift, dx));
   const clampedDy = Math.max(-maxShift, Math.min(maxShift, dy));
 
@@ -291,15 +291,15 @@ async function onTilePointerUp(e) {
   const { axis, startR, startC, lastDx, lastDy } = state.drag;
 
   state.drag.active = false;
-  clearLineTransforms();
 
   if (!axis) {
+    clearLineTransforms();
     state.drag = null;
     return;
   }
 
-  const tileSize = getTileSizePx();
-  const threshold = tileSize * 0.45;
+  const step = getTileStepPx();
+  const threshold = step * 0.20; // 20%
 
   let delta = 0;
   if (axis === "row") {
@@ -308,10 +308,35 @@ async function onTilePointerUp(e) {
     if (Math.abs(lastDy) >= threshold) delta = lastDy > 0 ? +1 : -1;
   }
 
-  state.drag = null;
-  if (delta === 0) return;
+  // Snap animation (easing) to the nearest cell, then commit the shift.
+  (async () => {
+    const index = axis === "row" ? startR : startC;
 
-  await attemptLineShift(axis, axis === "row" ? startR : startC, delta, { r: startR, c: startC });
+    // Animate line to 0 (cancel) or ±1 step (commit)
+    const target = delta === 0 ? 0 : (delta * step);
+
+    const nodes = Array.from($board.querySelectorAll(
+      axis === "row" ? `.tile[data-r="${index}"]` : `.tile[data-c="${index}"]`
+    ));
+
+    nodes.forEach(n => {
+      n.style.transition = "transform 140ms cubic-bezier(.2,.8,.2,1)";
+    });
+
+    if (axis === "row") applyRowTransform(index, target);
+    else applyColTransform(index, target);
+
+    await sleep(150);
+
+    nodes.forEach(n => (n.style.transition = ""));
+    clearLineTransforms();
+
+    if (delta !== 0) {
+      await attemptLineShift(axis, index, delta, { r: startR, c: startC });
+    }
+
+    state.drag = null;
+  })();
 }
 
 function onTilePointerCancel(e) {
@@ -331,28 +356,23 @@ function isAdjacent(a, b) { // legacy helper, not used now
 async function attemptLineShift(axis, index, delta, anchor) {
   // axis: "row" or "col"
   // index: row index or col index
-  // delta: +1 or -1 (cyclic shift)
+  // delta: +1 or -1 (cyclic shift by ONE tile)
   state.busy = true;
-
-  const backup = (axis === "row")
-    ? state.board[index].map(t => t ? { ...t } : null)
-    : state.board.map(row => row[index] ? { ...row[index] } : null);
 
   applyLineShift(axis, index, delta);
   renderBoard();
 
-  const matches = findAllMatches(state.board);
-  if (matches.length === 0) {
-    restoreLine(axis, index, backup);
-    renderBoard();
-    state.busy = false;
-    return;
-  }
-
+  // Count the move even if it doesn't create matches (line stays shifted now)
   state.moves += 1;
   state.combo = 0;
   state.lastMove = { type: "shift", axis, index, delta, anchor };
   updateHUD();
+
+  const matches = findAllMatches(state.board);
+  if (matches.length === 0) {
+    state.busy = false;
+    return;
+  }
 
   try {
     await resolveMatchesLoop();
@@ -393,18 +413,52 @@ function getTileSizePx() {
   return Number.isFinite(n) && n > 0 ? n : 72;
 }
 
+function getGapPx() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--gap").trim();
+  const n = Number(v.replace("px",""));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+function getTileStepPx() {
+  return getTileSizePx() + getGapPx();
+}
+
+
 function clearLineTransforms() {
   const nodes = $board.querySelectorAll(".tile");
   nodes.forEach(n => (n.style.transform = ""));
 }
 
 function applyRowTransform(rowIndex, dx) {
-  const nodes = $board.querySelectorAll(`.tile[data-r="${rowIndex}"]`);
-  nodes.forEach(n => (n.style.transform = `translateX(${dx}px)`));
+  const nodes = Array.from($board.querySelectorAll(`.tile[data-r="${rowIndex}"]`));
+  const step = getTileStepPx();
+  const span = CFG.cols * step;
+
+  nodes.forEach(n => {
+    const c = Number(n.dataset.c);
+    let x = dx;
+
+    // Wrap preview: dragging left shows the leftmost tile entering from the right;
+    // dragging right shows the rightmost tile entering from the left.
+    if (dx < 0 && c === 0) x = dx + span;
+    if (dx > 0 && c === CFG.cols - 1) x = dx - span;
+
+    n.style.transform = `translateX(${x}px)`;
+  });
 }
 function applyColTransform(colIndex, dy) {
-  const nodes = $board.querySelectorAll(`.tile[data-c="${colIndex}"]`);
-  nodes.forEach(n => (n.style.transform = `translateY(${dy}px)`));
+  const nodes = Array.from($board.querySelectorAll(`.tile[data-c="${colIndex}"]`));
+  const step = getTileStepPx();
+  const span = CFG.rows * step;
+
+  nodes.forEach(n => {
+    const r = Number(n.dataset.r);
+    let y = dy;
+
+    if (dy < 0 && r === 0) y = dy + span;
+    if (dy > 0 && r === CFG.rows - 1) y = dy - span;
+
+    n.style.transform = `translateY(${y}px)`;
+  });
 }
 
 async function attemptSwap(a, b) {
