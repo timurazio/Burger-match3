@@ -131,17 +131,9 @@ body{
   justify-content:center;
   user-select:none;
   touch-action: none;
-  -webkit-tap-highlight-color: transparent;
 
   overflow: hidden;
   border-radius: 18px;
-
-  /* iOS Safari: stabilize clipping + compositing to prevent flicker */
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  contain: layout paint;
-  transform: translateZ(0);
 }
 .tile{
   position:relative;
@@ -156,16 +148,6 @@ body{
   font-size: 40px;
   box-shadow: none;
   cursor:pointer;
-
-  /* Images are applied via background-image in JS; keep the rest static to avoid iOS Safari repaints */
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: calc(var(--tileSize) - 12px) calc(var(--tileSize) - 12px);
-
-  will-change: transform;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  transform: translateZ(0);
 }
 .tile::after{
   content:'';
@@ -177,16 +159,17 @@ body{
 }
 .tile.selected{
   outline: 4px solid rgba(255,255,255,.85);
+  transform: translateY(-1px);
 }
 .tile.removing{
   /* чуть более плавное и медленное уменьшение при удалении */
   animation: pop 0.24s ease-out forwards;
 }
 @keyframes pop{
-  0%{transform: translate3d(0,0,0) scale(1); opacity:1}
-  55%{transform: translate3d(0,0,0) scale(.92); opacity:.8}
+  0%{transform: scale(1); opacity:1}
+  55%{transform: scale(.92); opacity:.8}
   /* shrink ~2× stronger before исчезновение (0.31 -> 0.155) */
-  100%{transform: translate3d(0,0,0) scale(0.08); opacity:0}
+  100%{transform: scale(0.08); opacity:0}
 }
 .overlay{
   position:absolute; inset:0;
@@ -301,6 +284,9 @@ code{background: rgba(0,0,0,.15); padding: 2px 6px; border-radius: 8px}
   0%{opacity:0; transform: translate(-50%,-50%) rotate(var(--rot))}
   20%{opacity:1}
   100%{opacity:0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot))}
+}
+
+
 }
 
 
