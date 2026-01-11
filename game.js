@@ -1,13 +1,12 @@
 const CFG = {
   rows: 6,
   cols: 6,
-  // 2 минуты 20 секунд
-  timeSeconds: 140,
+  timeSeconds: 90,
   allowCascades: true
 };
 
 const TILESET = {
-  useImages: true, // поставь true, когда добавишь PNG в /assets
+  useImages: false, // поставь true, когда добавишь PNG в /assets
 
   // BASE_TILES — обычные плитки, они выпадают случайно
   baseTiles: [
@@ -43,7 +42,6 @@ const $playAgain = document.getElementById("playAgain");
 const $resetBtn = document.getElementById("resetBtn");
 
 let state;
-let tileEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
 
 function newGame() {
   state = {
@@ -58,12 +56,10 @@ function newGame() {
     timerId: null,
     lastSwap: null,
     lastMove: null,
-    removingSet: null,
     drag: null
   };
 
   fitTileSize();
-  ensureBoardDOM();
   renderBoard();
   updateHUD();
   hideOverlay();
@@ -146,87 +142,37 @@ function randTile() {
   return { ...t };
 }
 
-function makeBooster(key) {
-  const b = TILESET.boosters[key];
-  if (!b) throw new Error("Unknown booster: " + key);
-  // Clone to avoid shared references
-  return { ...b, booster: true };
-}
-
-
-function ensureBoardDOM() {
-  const needsRebuild = !tileEls || tileEls.length !== CFG.rows || tileEls[0]?.length !== CFG.cols;
-  if (!needsRebuild) return;
-
-  tileEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
-  const frag = document.createDocumentFragment();
-
+function renderBoard() {
+  $board.innerHTML = "";
   for (let r = 0; r < CFG.rows; r++) {
     for (let c = 0; c < CFG.cols; c++) {
+      const tile = state.board[r][c];
       const el = document.createElement("div");
       el.className = "tile";
       el.dataset.r = String(r);
       el.dataset.c = String(c);
 
-      // Attach listeners once (no rebind on every render)
+      if (tile) {
+        if (TILESET.useImages) {
+          el.style.backgroundImage = `url('${tile.img}')`;
+          el.style.backgroundRepeat = "no-repeat";
+          el.style.backgroundPosition = "center";
+          el.style.backgroundSize = "75% 75%";
+          el.textContent = "";
+        } else {
+          el.textContent = tile.emoji;
+        }
+      }
+
+      if (state.selected && state.selected.r === r && state.selected.c === c) {
+        el.classList.add("selected");
+      }
+
       el.addEventListener("pointerdown", onTilePointerDown);
       el.addEventListener("pointermove", onTilePointerMove);
       el.addEventListener("pointerup", onTilePointerUp);
       el.addEventListener("pointercancel", onTilePointerCancel);
-
-      tileEls[r][c] = el;
-      frag.appendChild(el);
-    }
-  }
-
-  // Replace once. Subsequent renders only update styles (prevents flicker).
-  $board.replaceChildren(frag);
-}
-
-
-function applyTileVisual(el, tile) {
-  if (!tile) {
-    el.dataset.key = "";
-    el.style.backgroundImage = "";
-    el.textContent = "";
-    return;
-  }
-
-  // Always keep dataset key in sync (cells are fixed; tiles move between cells).
-  el.dataset.key = tile.key;
-  el.textContent = "";
-
-  if (TILESET.useImages) {
-    el.style.backgroundImage = `url('${tile.img}')`;
-    el.style.backgroundRepeat = "no-repeat";
-    el.style.backgroundPosition = "center";
-    el.style.backgroundSize = "88% 88%";
-  } else {
-    el.style.backgroundImage = "";
-    el.textContent = tile.emoji;
-  }
-}
-
-
-function renderBoard() {
-  ensureBoardDOM();
-
-  for (let r = 0; r < CFG.rows; r++) {
-    for (let c = 0; c < CFG.cols; c++) {
-      const el = tileEls[r][c];
-      const tile = state.board[r][c];
-
-      // Keep removing class strictly tied to the current removing set.
-      if (state.removingSet && state.removingSet.has(r + "," + c)) {
-        el.classList.add("removing");
-      } else {
-        el.classList.remove("removing");
-      }
-
-      applyTileVisual(el, tile);
-
-      const isSel = state.selected && state.selected.r === r && state.selected.c === c;
-      el.classList.toggle("selected", Boolean(isSel));
+      $board.appendChild(el);
     }
   }
 }
@@ -356,11 +302,8 @@ async function attemptLineShift(axis, index, delta, anchor) {
   state.lastMove = { type: "shift", axis, index, delta, anchor };
   updateHUD();
 
-  try {
-    await resolveMatchesLoop();
-  } finally {
-    state.busy = false;
-  }
+  await resolveMatchesLoop();
+  state.busy = false;
 }
 
 function applyLineShift(axis, index, delta) {
@@ -427,11 +370,8 @@ async function attemptSwap(a, b) {
   state.lastMove = { type: "swap", a, b };
   updateHUD();
 
-  try {
-    await resolveMatchesLoop();
-  } finally {
-    state.busy = false;
-  }
+  await resolveMatchesLoop();
+  state.busy = false;
 }
 
 function swapTiles(a, b) {
@@ -531,12 +471,7 @@ async function resolveMatchesLoop() {
     state.coins += Math.floor(removedCount / 3);
 
     markRemoving(toRemove);
-    await sleep(260);
-
-    // Animation done — from here on we should stop treating these cells as "removing".
-    // Otherwise a new tile of the same key may land in the same cell and keep the class,
-    // making it look like tiles disappear and then reappear later.
-    state.removingSet = null;
+    await sleep(160);
 
     for (const key of toRemove) {
       const [r, c] = key.split(",").map(Number);
@@ -555,13 +490,11 @@ async function resolveMatchesLoop() {
 }
 
 function markRemoving(toRemove) {
-  ensureBoardDOM();
-  // Save the set so renderBoard can consistently apply/remove the class.
-  state.removingSet = toRemove;
-  for (let r = 0; r < CFG.rows; r++) {
-    for (let c = 0; c < CFG.cols; c++) {
-      if (toRemove.has(r + "," + c)) tileEls[r][c].classList.add("removing");
-    }
+  const nodes = $board.querySelectorAll(".tile");
+  for (const el of nodes) {
+    const r = el.dataset.r;
+    const c = el.dataset.c;
+    if (toRemove.has(r + "," + c)) el.classList.add("removing");
   }
 }
 
