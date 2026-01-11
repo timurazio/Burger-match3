@@ -87,8 +87,8 @@ body{
   height: 44px;
 }
 .bubble-row.coins .crown-circle .ui-icon{
-  width: 36px;
-  height: 36px;
+  width: 28.8px;
+  height: 28.8px;
 }
 
 .overlay .crown-circle{
@@ -96,8 +96,8 @@ body{
   height: 60px;
 }
 .overlay .crown-circle .ui-icon{
-  width: 48px;
-  height: 48px;
+  width: 38.4px;
+  height: 38.4px;
 }
 .label-with-icon{
   display:inline-flex;
