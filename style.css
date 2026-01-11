@@ -157,13 +157,13 @@ body{
 }
 .tile.removing{
   /* чуть более плавное и медленное уменьшение при удалении */
-  animation: pop .28s ease-out forwards;
+  animation: pop 0.34s ease-out forwards;
 }
 @keyframes pop{
   0%{transform: scale(1); opacity:1}
   55%{transform: scale(.92); opacity:.8}
   /* shrink ~2× stronger before исчезновение (0.31 -> 0.155) */
-  100%{transform: scale(.155); opacity:0}
+  100%{transform: scale(0.08); opacity:0}
 }
 .overlay{
   position:absolute; inset:0;
