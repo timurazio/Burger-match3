@@ -753,13 +753,23 @@ function spawnDotBurstAt(r, c) {
   el.style.top = pos.y + "px";
 
   // Palette tuned to feel like soda/foam + some darker specks (as in the reference video)
+  // NOTE: Use fully-opaque colors; opacity is controlled by the animation (var(--a)) for higher contrast.
   const palette = [
-    "rgba(255,255,255,.80)",
-    "rgba(255, 236, 170, .68)",
-    "rgba(210, 30, 0, .35)",
-    "rgba(45, 30, 24, .28)",
-    "rgba(40, 95, 70, .30)",
+    "rgb(255,255,255)",     // foam
+    "rgb(255, 235, 165)",   // warm spark
+    "rgb(255, 60, 20)",     // bright red
+    "rgb(220, 20, 0)",      // deep red
+    "rgb(60, 35, 28)",      // dark speck
+    "rgb(35, 90, 68)",      // green speck
   ];
+
+  // Weighted pick: more reds + higher contrast overall
+  function pickDotColor() {
+    const r = Math.random();
+    if (r < 0.40) return palette[2 + Math.floor(Math.random() * 2)]; // reds
+    if (r < 0.70) return palette[Math.floor(Math.random() * 2)];     // lights
+    return palette[4 + Math.floor(Math.random() * 2)];               // darks
+  }
 
   const count = 22;
   for (let i = 0; i < count; i++) {
@@ -774,13 +784,13 @@ function spawnDotBurstAt(r, c) {
     const dy = Math.sin(ang) * dist + (6 + Math.random() * 10);
 
     const size = 4 + Math.random() * 6;
-    const alpha = 0.55 + Math.random() * 0.35;
+    const alpha = 0.78 + Math.random() * 0.22;
     const scaleEnd = 0.85 + Math.random() * 0.55;
-    const delay = Math.floor(Math.random() * 60);
+    const delay = Math.floor(Math.random() * 80);
 
     d.style.width = size + "px";
     d.style.height = size + "px";
-    d.style.background = palette[Math.floor(Math.random() * palette.length)];
+    d.style.background = pickDotColor();
     d.style.setProperty("--dx", dx.toFixed(1) + "px");
     d.style.setProperty("--dy", dy.toFixed(1) + "px");
     d.style.setProperty("--a", alpha.toFixed(2));
@@ -791,7 +801,7 @@ function spawnDotBurstAt(r, c) {
   }
 
   $fxLayer.appendChild(el);
-  cleanupFx(el, 720);
+  cleanupFx(el, 950);
 }
 
 function spawnSplashAt(r, c) {
