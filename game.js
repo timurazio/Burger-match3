@@ -486,7 +486,7 @@ async function resolveMatchesLoop() {
     state.coins += Math.floor(removedCount / 3);
 
     markRemoving(toRemove);
-    await sleep(360);
+    await sleep(260);
 
     for (const key of toRemove) {
       const [r, c] = key.split(",").map(Number);
