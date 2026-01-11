@@ -42,8 +42,8 @@ const $playAgain = document.getElementById("playAgain");
 const $resetBtn = document.getElementById("resetBtn");
 
 let state;
-let tileEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
-let tileSprites = null; // 2D array of inner sprite nodes (isolates transforms/animations)
+let tileEls = null;
+let tileInnerEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
 
 function newGame() {
   state = {
@@ -154,11 +154,11 @@ function makeBooster(key) {
 }
 
 function ensureBoardDOM() {
-  const needsRebuild = !tileEls || tileEls.length !== CFG.rows || tileEls[0]?.length !== CFG.cols;
-  if (!needsRebuild) return;
+  if (tileEls) return;
 
   tileEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
-  tileSprites = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
+  tileInnerEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
+
   const frag = document.createDocumentFragment();
 
   for (let r = 0; r < CFG.rows; r++) {
@@ -168,58 +168,52 @@ function ensureBoardDOM() {
       el.dataset.r = String(r);
       el.dataset.c = String(c);
 
-      const sprite = document.createElement("div");
-      sprite.className = "tile-sprite";
-      el.appendChild(sprite);
+      const inner = document.createElement("div");
+      inner.className = "tileInner";
+      el.appendChild(inner);
 
-      // Attach listeners once (no rebind on every render)
       el.addEventListener("pointerdown", onTilePointerDown);
       el.addEventListener("pointermove", onTilePointerMove);
       el.addEventListener("pointerup", onTilePointerUp);
       el.addEventListener("pointercancel", onTilePointerCancel);
 
       tileEls[r][c] = el;
-      tileSprites[r][c] = sprite;
+      tileInnerEls[r][c] = inner;
+
       frag.appendChild(el);
     }
   }
 
-  // Replace once. Subsequent renders only update styles (prevents flicker).
+  // Cells are fixed in DOM (prevents flicker).
   $board.replaceChildren(frag);
 }
 
 function applyTileVisual(el, tile) {
-  // Visuals are rendered on the inner sprite node to avoid transform conflicts:
-  // - line shifting uses transform on the tile (parent)
-  // - removal pop uses transform on the sprite (child)
-  const sprite = el.firstElementChild;
+  // 'el' here is the INNER layer (.tileInner)
+  const prevKey = el.dataset.key || "";
 
   if (!tile) {
-    if (el.dataset.key !== "") {
+    if (prevKey !== "") {
       el.dataset.key = "";
-      sprite.dataset.img = "";
-      sprite.style.backgroundImage = "";
-      sprite.textContent = "";
+      el.style.backgroundImage = "";
+      el.textContent = "";
     }
     return;
   }
 
-  // If the key didn't change for this cell, avoid re-applying backgroundImage every render
-  // (helps prevent a 1-frame "blink" on some devices/browsers).
-  if (el.dataset.key === tile.key && sprite.dataset.img === tile.img) {
+  if (prevKey === tile.key) {
+    // Same tile type already rendered here; avoid reapplying background-image every render (prevents blinking).
     return;
   }
 
   el.dataset.key = tile.key;
-  sprite.textContent = "";
+  el.textContent = "";
 
   if (TILESET.useImages) {
-    sprite.dataset.img = tile.img;
-    sprite.style.backgroundImage = `url('${tile.img}')`;
+    el.style.backgroundImage = `url('${tile.img}')`;
   } else {
-    sprite.dataset.img = "";
-    sprite.style.backgroundImage = "";
-    sprite.textContent = tile.emoji;
+    el.style.backgroundImage = "";
+    el.textContent = tile.emoji;
   }
 }
 
@@ -229,23 +223,25 @@ function renderBoard() {
   for (let r = 0; r < CFG.rows; r++) {
     for (let c = 0; c < CFG.cols; c++) {
       const el = tileEls[r][c];
+      const inner = tileInnerEls[r][c];
       const tile = state.board[r][c];
 
-      // Keep removing class strictly tied to the current removing set.
-      if (state.removingSet && state.removingSet.has(r + "," + c)) {
-        el.classList.add("removing");
+      const wasRemoving = el.classList.contains("removing");
+      const nowRemoving = Boolean(state.removingSet && state.removingSet.has(r + "," + c));
+
+      if (nowRemoving) {
+        if (!wasRemoving) el.classList.add("removing");
       } else {
-        if (el.classList.contains("removing")) {
+        if (wasRemoving) {
           el.classList.remove("removing");
-          // Safety: if a previous pop animation left computed styles on sprite, reset.
-          const sprite = el.firstElementChild;
-          sprite.style.animation = "";
-          sprite.style.transform = "";
-          sprite.style.opacity = "";
+          // If a previous pop animation left computed styles, reset only on the inner layer.
+          inner.style.animation = "";
+          inner.style.transform = "";
+          inner.style.opacity = "";
         }
       }
 
-      applyTileVisual(el, tile);
+      applyTileVisual(inner, tile);
 
       const isSel = state.selected && state.selected.r === r && state.selected.c === c;
       el.classList.toggle("selected", Boolean(isSel));
@@ -920,3 +916,4 @@ document.querySelectorAll(".chip").forEach(btn => {
 document.addEventListener("DOMContentLoaded", () => {
   startWithPreloader();
 });
+
