@@ -148,6 +148,19 @@ body{
   font-size: 40px;
   box-shadow: none;
   cursor:pointer;
+  overflow: hidden;
+  --tile-bg: none;
+}
+.tile::before{
+  content:'';
+  position:absolute;
+  inset: 0;
+  background-image: var(--tile-bg);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 88% 88%;
+  pointer-events:none;
+  transform-origin: center;
 }
 .tile::after{
   content:'';
@@ -156,6 +169,15 @@ body{
   border-radius: var(--tileRadius);
   background: radial-gradient(60px 60px at 30% 25%, rgba(255,255,255,.22) 0%, transparent 65%);
   pointer-events:none;
+}
+.tile.booster::before{
+  animation: boosterPulse 1.05s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+}
+@keyframes boosterPulse{
+  0%{transform: scale(1)}
+  40%{transform: scale(1.08)}
+  62%{transform: scale(0.98)}
+  100%{transform: scale(1)}
 }
 .tile.selected{
   outline: 4px solid rgba(255,255,255,.85);

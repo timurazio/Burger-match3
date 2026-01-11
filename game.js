@@ -184,22 +184,19 @@ function ensureBoardDOM() {
 function applyTileVisual(el, tile) {
   if (!tile) {
     el.dataset.key = "";
-    el.style.backgroundImage = "";
+    el.style.setProperty("--tile-bg", "none");
     el.textContent = "";
     return;
   }
 
   // Always keep dataset key in sync (cells are fixed; tiles move between cells).
   el.dataset.key = tile.key;
-  el.textContent = "";
 
   if (TILESET.useImages) {
-    el.style.backgroundImage = `url('${tile.img}')`;
-    el.style.backgroundRepeat = "no-repeat";
-    el.style.backgroundPosition = "center";
-    el.style.backgroundSize = "88% 88%";
+    el.style.setProperty("--tile-bg", `url('${tile.img}')`);
+    el.textContent = "";
   } else {
-    el.style.backgroundImage = "";
+    el.style.setProperty("--tile-bg", "none");
     el.textContent = tile.emoji;
   }
 }
@@ -224,6 +221,8 @@ function renderBoard() {
       }
 
       applyTileVisual(el, tile);
+      // Cola is a booster tile: add a subtle pulse so it's readable as a special tile.
+      el.classList.toggle("booster", Boolean(tile && tile.key === "cola"));
 
       const isSel = state.selected && state.selected.r === r && state.selected.c === c;
       el.classList.toggle("selected", Boolean(isSel));
