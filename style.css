@@ -162,8 +162,8 @@ body{
 @keyframes pop{
   0%{transform: scale(1); opacity:1}
   55%{transform: scale(.92); opacity:.8}
-  /* shrink ~2× stronger before исчезновение (0.62 -> 0.31) */
-  100%{transform: scale(.31); opacity:0}
+  /* shrink ~2× stronger before исчезновение (0.31 -> 0.155) */
+  100%{transform: scale(.155); opacity:0}
 }
 .overlay{
   position:absolute; inset:0;
