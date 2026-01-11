@@ -1,7 +1,8 @@
 const CFG = {
   rows: 6,
   cols: 6,
-  timeSeconds: 90,
+  // 2 минуты 20 секунд
+  timeSeconds: 140,
   allowCascades: true
 };
 
