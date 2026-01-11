@@ -13,11 +13,10 @@ const TILESET = {
   baseTiles: [
     { key: "burger",   emoji: "🍔", img: "assets/burger.png"   },
     { key: "brownie",  emoji: "🍫", img: "assets/brownie.png"  },
-    { key: "icecream", emoji: "🍦", img: "assets/icecream.png" },
-    { key: "chicken",  emoji: "🍗", img: "assets/nuggets.png"  },
+{ key: "chicken",  emoji: "🍗", img: "assets/nuggets.png"  },
     { key: "roll",     emoji: "🌯", img: "assets/roll.png"     },
     { key: "fries",    emoji: "🍟", img: "assets/fries.png"    },
-    { key: "cola",     emoji: "🥤", img: "assets/cola.png"     },
+    { key: "cola",     emoji: "🥤", img: "assets/cola.png"     }
   ],
 
   // BOOSTERS — создаются из матчей игрока
@@ -25,7 +24,6 @@ const TILESET = {
     sauce: { key: "sauce", emoji: "🥫", img: "assets/sauce.png" }, // 3 соуса взрывают соседние клетки 3×3
   }
 };
-
 
 const $board = document.getElementById("board");
 const $fxLayer = document.getElementById("fxLayer");
@@ -154,7 +152,6 @@ function makeBooster(key) {
   return { ...b, booster: true };
 }
 
-
 function ensureBoardDOM() {
   const needsRebuild = !tileEls || tileEls.length !== CFG.rows || tileEls[0]?.length !== CFG.cols;
   if (!needsRebuild) return;
@@ -184,7 +181,6 @@ function ensureBoardDOM() {
   $board.replaceChildren(frag);
 }
 
-
 function applyTileVisual(el, tile) {
   if (!tile) {
     el.dataset.key = "";
@@ -207,7 +203,6 @@ function applyTileVisual(el, tile) {
     el.textContent = tile.emoji;
   }
 }
-
 
 function renderBoard() {
   ensureBoardDOM();
@@ -328,8 +323,6 @@ function isAdjacent(a, b) { // legacy helper, not used now
   const dc = Math.abs(a.c - b.c);
   return (dr + dc) === 1;
 }
-
-
 
 async function attemptLineShift(axis, index, delta, anchor) {
   // axis: "row" or "col"
@@ -553,7 +546,6 @@ function fillBoard(board) {
   }
 }
 
-
 function createBoostersFromPlayerMove(matches, lastMove) {
   // One-booster rule:
   // - EXACTLY 4 in a straight line (touched by the player's move) -> SAUCE booster
@@ -673,7 +665,6 @@ function findAllMatches(board) {
   return matches;
 }
 
-
 function spawnSplashAt(r, c) {
   const pos = tileCenterPx(r, c);
   if (!pos) return;
@@ -744,7 +735,6 @@ function tileCenterPx(r, c) {
 }
 
 function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
-
 
 function setPreloaderProgress(pct) {
   const fill = document.getElementById("preloaderFill");
@@ -835,7 +825,6 @@ document.querySelectorAll(".chip").forEach(btn => {
     updateHUD();
   });
 });
-
 
 document.addEventListener("DOMContentLoaded", () => {
   startWithPreloader();
