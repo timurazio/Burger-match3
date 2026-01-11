@@ -119,6 +119,9 @@ body{
   border-radius: 26px;
   padding: 14px;
   box-shadow: var(--shadow);
+
+  overflow: hidden;
+  isolation: isolate;
 }
 .board{
   display:grid;
@@ -128,6 +131,9 @@ body{
   justify-content:center;
   user-select:none;
   touch-action: none;
+
+  overflow: hidden;
+  border-radius: 18px;
 }
 .tile{
   position:relative;
