@@ -43,6 +43,7 @@ const $resetBtn = document.getElementById("resetBtn");
 
 let state;
 let tileEls = null; // 2D array of tile DOM nodes, created once to avoid flicker
+let tileSprites = null; // 2D array of inner sprite nodes (isolates transforms/animations)
 
 function newGame() {
   state = {
@@ -157,6 +158,7 @@ function ensureBoardDOM() {
   if (!needsRebuild) return;
 
   tileEls = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
+  tileSprites = Array.from({ length: CFG.rows }, () => Array(CFG.cols).fill(null));
   const frag = document.createDocumentFragment();
 
   for (let r = 0; r < CFG.rows; r++) {
@@ -166,6 +168,10 @@ function ensureBoardDOM() {
       el.dataset.r = String(r);
       el.dataset.c = String(c);
 
+      const sprite = document.createElement("div");
+      sprite.className = "tile-sprite";
+      el.appendChild(sprite);
+
       // Attach listeners once (no rebind on every render)
       el.addEventListener("pointerdown", onTilePointerDown);
       el.addEventListener("pointermove", onTilePointerMove);
@@ -173,6 +179,7 @@ function ensureBoardDOM() {
       el.addEventListener("pointercancel", onTilePointerCancel);
 
       tileEls[r][c] = el;
+      tileSprites[r][c] = sprite;
       frag.appendChild(el);
     }
   }
@@ -182,25 +189,37 @@ function ensureBoardDOM() {
 }
 
 function applyTileVisual(el, tile) {
+  // Visuals are rendered on the inner sprite node to avoid transform conflicts:
+  // - line shifting uses transform on the tile (parent)
+  // - removal pop uses transform on the sprite (child)
+  const sprite = el.firstElementChild;
+
   if (!tile) {
-    el.dataset.key = "";
-    el.style.backgroundImage = "";
-    el.textContent = "";
+    if (el.dataset.key !== "") {
+      el.dataset.key = "";
+      sprite.dataset.img = "";
+      sprite.style.backgroundImage = "";
+      sprite.textContent = "";
+    }
     return;
   }
 
-  // Always keep dataset key in sync (cells are fixed; tiles move between cells).
+  // If the key didn't change for this cell, avoid re-applying backgroundImage every render
+  // (helps prevent a 1-frame "blink" on some devices/browsers).
+  if (el.dataset.key === tile.key && sprite.dataset.img === tile.img) {
+    return;
+  }
+
   el.dataset.key = tile.key;
-  el.textContent = "";
+  sprite.textContent = "";
 
   if (TILESET.useImages) {
-    el.style.backgroundImage = `url('${tile.img}')`;
-    el.style.backgroundRepeat = "no-repeat";
-    el.style.backgroundPosition = "center";
-    el.style.backgroundSize = "88% 88%";
+    sprite.dataset.img = tile.img;
+    sprite.style.backgroundImage = `url('${tile.img}')`;
   } else {
-    el.style.backgroundImage = "";
-    el.textContent = tile.emoji;
+    sprite.dataset.img = "";
+    sprite.style.backgroundImage = "";
+    sprite.textContent = tile.emoji;
   }
 }
 
@@ -216,10 +235,14 @@ function renderBoard() {
       if (state.removingSet && state.removingSet.has(r + "," + c)) {
         el.classList.add("removing");
       } else {
-        el.classList.remove("removing");
-        // Safety: if a previous pop animation left computed styles, reset.
-        el.style.animation = "";
-        el.style.opacity = "";
+        if (el.classList.contains("removing")) {
+          el.classList.remove("removing");
+          // Safety: if a previous pop animation left computed styles on sprite, reset.
+          const sprite = el.firstElementChild;
+          sprite.style.animation = "";
+          sprite.style.transform = "";
+          sprite.style.opacity = "";
+        }
       }
 
       applyTileVisual(el, tile);
@@ -319,7 +342,7 @@ async function onTilePointerUp(e) {
     ));
 
     nodes.forEach(n => {
-      n.style.transition = "translate 0.24s cubic-bezier(.2,.85,.2,1)"
+      n.style.transition = "transform 140ms cubic-bezier(.2,.8,.2,1)";
     });
 
     if (axis === "row") applyRowTransform(index, target);
@@ -424,7 +447,7 @@ function getTileStepPx() {
 
 function clearLineTransforms() {
   const nodes = $board.querySelectorAll(".tile");
-  nodes.forEach(n => (n.style.translate = ""));
+  nodes.forEach(n => (n.style.transform = ""));
 }
 
 function applyRowTransform(rowIndex, dx) {
@@ -441,7 +464,7 @@ function applyRowTransform(rowIndex, dx) {
     if (dx < 0 && c === 0) x = dx + span;
     if (dx > 0 && c === CFG.cols - 1) x = dx - span;
 
-    n.style.translate = `${x}px 0px`;
+    n.style.transform = `translateX(${x}px)`;
   });
 }
 function applyColTransform(colIndex, dy) {
@@ -456,7 +479,7 @@ function applyColTransform(colIndex, dy) {
     if (dy < 0 && r === 0) y = dy + span;
     if (dy > 0 && r === CFG.rows - 1) y = dy - span;
 
-    n.style.translate = `0px ${y}px`;
+    n.style.transform = `translateY(${y}px)`;
   });
 }
 
@@ -559,6 +582,7 @@ async function resolveMatchesLoop() {
         if (!el) continue;
         el.classList.remove("removing");
         el.style.animation = "";
+        el.style.transform = "";
         el.style.opacity = "";
       }
     }
@@ -896,4 +920,3 @@ document.querySelectorAll(".chip").forEach(btn => {
 document.addEventListener("DOMContentLoaded", () => {
   startWithPreloader();
 });
-
