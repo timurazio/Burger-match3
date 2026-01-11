@@ -49,9 +49,30 @@ body{
   color:#3D2B1F;
   font-size: 22px;
   font-weight: 900;
+  padding: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   cursor:pointer;
   box-shadow: var(--shadow);
 }
+
+/* UI icons (SVG) */
+.ui-icon{
+  width: 24px;
+  height: 24px;
+  display:block;
+}
+.coin .ui-icon{
+  width: 18px;
+  height: 18px;
+}
+.label-with-icon{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+}
+.inline-icon{display:inline-flex; align-items:center}
 .wrap{
   max-width: 520px;
   margin: 0 auto;
@@ -99,6 +120,7 @@ body{
   font-weight: 900;
   font-size: 18px;
 }
+.coin{display:inline-flex; align-items:center}
 .hud{
   display:flex;
   justify-content:space-between;
