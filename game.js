@@ -182,6 +182,11 @@ function ensureBoardDOM() {
 }
 
 function applyTileVisual(el, tile) {
+  // iOS Safari can flicker if we keep re-assigning the same background-image/style every render.
+  // Only touch the DOM when the visual key actually changes.
+  const nextKey = tile ? tile.key : "";
+  if (el.dataset.key === nextKey) return;
+
   if (!tile) {
     el.dataset.key = "";
     el.style.backgroundImage = "";
@@ -189,15 +194,11 @@ function applyTileVisual(el, tile) {
     return;
   }
 
-  // Always keep dataset key in sync (cells are fixed; tiles move between cells).
   el.dataset.key = tile.key;
   el.textContent = "";
 
   if (TILESET.useImages) {
     el.style.backgroundImage = `url('${tile.img}')`;
-    el.style.backgroundRepeat = "no-repeat";
-    el.style.backgroundPosition = "center";
-    el.style.backgroundSize = "88% 88%";
   } else {
     el.style.backgroundImage = "";
     el.textContent = tile.emoji;
@@ -213,14 +214,17 @@ function renderBoard() {
       const tile = state.board[r][c];
 
       // Keep removing class strictly tied to the current removing set.
+      const wasRemoving = el.classList.contains("removing");
       if (state.removingSet && state.removingSet.has(r + "," + c)) {
         el.classList.add("removing");
       } else {
         el.classList.remove("removing");
-        // Safety: if a previous pop animation left computed styles, reset.
-        el.style.animation = "";
-        el.style.transform = "";
-        el.style.opacity = "";
+        // Only reset styles if we *were* removing before; prevents extra repaints on iOS Safari.
+        if (wasRemoving) {
+          el.style.animation = "";
+          el.style.transform = "";
+          el.style.opacity = "";
+        }
       }
 
       applyTileVisual(el, tile);
@@ -270,9 +274,7 @@ function onTilePointerMove(e) {
     state.drag.axis = absX >= absY ? "row" : "col";
   }
 
-  clearLineTransforms();
-
-    const step = getTileStepPx();
+  const step = getTileStepPx();
   const maxShift = step * 0.95;
   const clampedDx = Math.max(-maxShift, Math.min(maxShift, dx));
   const clampedDy = Math.max(-maxShift, Math.min(maxShift, dy));
@@ -336,7 +338,7 @@ async function onTilePointerUp(e) {
       renderBoard();
     }
 
-    clearLineTransforms();
+    clearLineTransforms(axis, index);
 
     if (delta !== 0) {
       await attemptLineShift(axis, index, delta, { r: startR, c: startC }, true);
@@ -349,10 +351,13 @@ async function onTilePointerUp(e) {
 function onTilePointerCancel(e) {
   if (!state.drag) return;
   if (e.pointerId !== state.drag.pointerId) return;
+  const axis = state.drag.axis;
+  const index = axis === "row" ? state.drag.startR : state.drag.startC;
   state.drag.active = false;
   state.drag = null;
-  clearLineTransforms();
+  clearLineTransforms(axis, index);
 }
+
 
 function isAdjacent(a, b) { // legacy helper, not used now
   const dr = Math.abs(a.r - b.r);
@@ -432,8 +437,9 @@ function getTileStepPx() {
 }
 
 
-function clearLineTransforms() {
-  const nodes = $board.querySelectorAll(".tile");
+function clearLineTransforms(axis, index) {
+  const selector = !axis ? ".tile" : (axis === "row" ? `.tile[data-r="${index}"]` : `.tile[data-c="${index}"]`);
+  const nodes = $board.querySelectorAll(selector);
   nodes.forEach(n => (n.style.transform = ""));
 }
 
